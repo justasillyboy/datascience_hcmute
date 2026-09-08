@@ -134,6 +134,35 @@ docs/evidence/  log thô của các phép kiểm chứng
 CLAUDE.md       quy ước làm việc, cạm bẫy đã biết, ràng buộc đạo đức
 ```
 
+## Lộ trình đồ án
+
+Workflow bắt buộc của môn: **Business → Data Collection → Cleaning → EDA → Modeling**
+(bỏ Deployment). Thang điểm **5đ đủ bước · 3đ chứng minh đúng · 2đ code** — 5đ ai
+cũng lấy được, nên trọng tâm của repo này là **3đ chứng minh đúng**.
+
+| # | Bước | Trạng thái | Sản phẩm |
+|---|---|---|---|
+| 1 | **Business** — định nghĩa Delivery Promise Gap, chốt phương án đo | ✅ xong | `CLAUDE.md` §4 · `FEASIBILITY.md` §5 |
+| 2 | **Data Collection** — scraper phân tầng theo sao + cache | ✅ xong | `src/collect/` · 117.819 review |
+| 3 | **Cleaning** — gắn cờ chất lượng, sửa múi giờ, data contract | ✅ xong | `src/clean/` · `src/validate/` · 22/22 kiểm |
+| 4 | **EDA — số** — thống kê có trọng số, bootstrap cụm, `n_eff` | ✅ xong | `src/evaluate/` · `FINDINGS.md` §1–§6 |
+| 5 | **EDA — hình** — biểu đồ cho báo cáo và slide | ⬜ chưa | `notebooks/` |
+| 6 | **Độ nhạy MNAR** — chặn trên/dưới cho 90% review không nhãn | 🔶 đang dở | `src/evaluate/mnar_sensitivity.py` · kế hoạch ở `CLAUDE.md` §9.1 |
+| 7 | **Phân rã** — bẫy SLA theo ngành hàng và nhà bán | ⬜ chưa | |
+| 8 | **Modeling** — dự đoán `is_low_rating`, thang baseline, ablation | ⬜ chưa | `src/models/` |
+| 9 | **Đối chiếu Olist** — tham chiếu quốc tế, *không* phải nguồn phân tích | ⬜ chưa | |
+| 10 | **Báo cáo + slide** | ⬜ chưa | |
+
+Việc kế tiếp: **bước 6**, bắt đầu từ mục 1 trong `CLAUDE.md` §9.1.
+
+### Nguyên tắc xuyên suốt
+
+- **Mọi con số trong tài liệu phải sinh ra bằng một lệnh.** Không chép tay — đã hai
+  lần tài liệu âm thầm sai khi dữ liệu đổi.
+- **Mọi ước lượng quần thể phải nhân trọng số phân tầng**, và phải kèm `n_eff`.
+- **Không xoá dòng lỗi trong im lặng** — gắn cờ, đếm được, báo cáo được.
+- Notebook chỉ kể chuyện; logic nằm trong `src/` và có test.
+
 ## Đạo đức thu thập dữ liệu
 
 Tôn trọng `robots.txt` của Tiki (không đụng `/api/v2/me/`, `/v1/private/`, `/order/tracking`, `/customer/*`) · 1 request/giây, không chạy song song · cache xuống đĩa, cào đúng một lần · **không public dữ liệu thô** (`data/` nằm trong `.gitignore`) · User-Agent khai rõ mục đích học thuật.

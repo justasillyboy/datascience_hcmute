@@ -229,7 +229,7 @@ Câu nói khi bảo vệ:
 - [x] **Điều tra 1.181 dòng `lead_days` âm** → `src/evaluate/lead_anomaly.py` + `FINDINGS.md` §6.2–6.4
 - [x] Kết quả + hai bài học phương pháp → `docs/FINDINGS.md`
 - [x] Test: 39/39 đạt (`python3 -m pytest`)
-- [ ] Phân tích độ nhạy chặn trên/dưới cho thiên lệch MNAR ← **việc đáng làm nhất còn lại**
+- [~] **Độ nhạy MNAR — ĐANG DỞ**: xong phần mô tả cơ chế (§9.1), chưa làm chặn Manski + điểm gãy θ
 - [ ] Cào thêm sản phẩm sau 2023 để nâng `n_eff` của hai ước lượng phụ (cả hai giờ < 100)
 - [ ] Phân rã theo ngành hàng / nhà bán
 - [ ] Modeling + thang baseline + ablation
@@ -241,6 +241,7 @@ Câu nói khi bảo vệ:
 python3 -m src.clean.run_clean        # raw -> processed, chạy contract 2 tầng
 python3 -m src.evaluate.run_analysis  # mọi con số trong FINDINGS.md §1-§4
 python3 -m src.evaluate.lead_anomaly  # mọi con số trong FINDINGS.md §6
+python3 -m src.evaluate.mnar_sensitivity  # độ nhạy MNAR (mới xong phần A+B)
 python3 -m pytest                     # 39 test
 ```
 
@@ -279,9 +280,11 @@ Hai ước lượng phụ, dùng dưới dạng khoảng — **không** làm k�
    Giá trị hiện hành là 86,3% và 88,4%, cả hai đều `n_eff < 100` → **mong manh**,
    chỉ trích dưới dạng khoảng.
 
-3. **Nhãn `delivery_rating` là MNAR** — chỉ có từ 2023, độ phủ 9,8%, nhóm có nhãn
-   giao nhanh hơn nhóm không nhãn. Mọi ước lượng ở trên là **trên nhóm có nhãn**,
-   không phải toàn quần thể.
+3. **Thiếu nhãn `delivery_rating` gồm HAI cơ chế, đừng gộp làm một** (§9.1):
+   *thiếu do thiết kế* (trường chưa tồn tại trước 2023 → độ phủ đúng 0%, chiếm 62%
+   quần thể) và *chọn lọc thật* (trong 2023+ chỉ 29,5% có nhãn). Câu cũ "nhóm có
+   nhãn giao nhanh hơn" **phóng đại**: so gộp thì 4,5×, so trong cùng kỷ nguyên chỉ
+   1,6×. Mọi ước lượng ở trên là **trên nhóm có nhãn, kỷ nguyên 2023+**.
 
 4. **Tỉ lệ vượt SLA gộp 7,27% KHÔNG phải tình hình hiện tại.** Mẫu trải 12 năm,
    2021+2022 chiếm 47% và riêng 2021 là 17,48% (giãn cách). Hiện trạng 2024–2026
@@ -299,3 +302,74 @@ với `n_eff` (§5), một lần khi hỏi "loại dòng lead âm ra có cắt m
 không" — đếm thô nói *có* (10,58% vs 5,43% một sao), nhân trọng số nói *không*
 (1,87% vs 1,47%, và rating trung bình còn **cao hơn**). Nhân trọng số trước, rồi
 mới so sánh.
+
+
+---
+
+## 9.1 Việc đang dở: độ nhạy MNAR — đọc cái này trước khi làm tiếp
+
+**Trạng thái 2026-09-09:** xong phần mô tả cơ chế, chưa làm phần chặn.
+Code: `src/evaluate/mnar_sensitivity.py` · log: `docs/evidence/mnar_sensitivity_2026-09-09.txt`
+
+### Đã xong — và đã lật một câu trong tài liệu
+
+Thiếu nhãn **không phải một cơ chế mà là hai**, tài liệu cũ gộp làm một:
+
+| Cơ chế | Quy mô | Chặn được không? |
+|---|---|---|
+| **Thiếu do thiết kế** — `delivery_rating` chưa tồn tại trước 2023, độ phủ đúng **0,00%** ở mọi năm 2017–2022 | **62% quần thể** | ❌ Không. Nhóm này chưa bao giờ có cơ hội mang nhãn — không giả định nào cứu được |
+| **Chọn lọc thật** — trong kỷ nguyên 2023+, 29,5% (trọng số) có nhãn | 38% quần thể | ✅ Có, đây mới là chỗ đặt chặn |
+
+Hệ quả: **chọn lọc thật nhẹ hơn vẻ ngoài rất nhiều.** Câu "nhóm có nhãn giao nhanh
+hơn" trong `FINDINGS.md §7` đang phóng đại vì nhóm không nhãn bị trộn thêm cả giai
+đoạn giao kém trước 2023:
+
+| So sánh | Có nhãn | Không nhãn | Bội số |
+|---|---|---|---|
+| Gộp toàn mẫu | 1,78% vượt SLA | 7,96% | **4,5×** |
+| **Trong cùng kỷ nguyên 2023+** | 1,78% | 2,77% | **1,6×** |
+
+Chênh rating cũng co từ +0,146 xuống **+0,050**; lead time từ 1,38 vs 2,31 xuống
+1,38 vs **1,55** ngày.
+
+→ **Miền khái quát hoá đúng của kết luận §4 là kỷ nguyên 2023–2026**, không phải
+toàn bộ 12 năm. Phải viết lại `FINDINGS.md §7` cho đúng khi làm xong phần chặn.
+
+### Chưa xong — kế hoạch cụ thể
+
+1. **Chặn Manski (không cần giả định).** Dự đoán trước: sẽ **vô dụng** vì 70% kỷ
+   nguyên 2023+ không có nhãn, đủ để một đối thủ kéo `|Δrating theo nhãn khách|` về
+   0, làm chặn dưới của khoảng cách thành `−|Δ_sla|` < 0. Vẫn nên chạy và báo cáo —
+   biết chặn nào vô dụng cũng là kết quả, và nó biện minh cho bước 2.
+2. **Quét điểm gãy θ.** Tham số hoá mức suy giảm thông tin của nhãn trong nhóm
+   không nhãn:
+   `p_i(θ) = θ · p_MAR(ô_i) + (1−θ) · p̄`
+   trong đó `p_MAR(ô)` ước lượng từ nhóm có nhãn trên ô `(rating × sla_breach)`,
+   `p̄` là tỉ lệ "trễ hẹn" biên. θ=1 là MAR; θ=0 là nhãn **không mang tin gì** trong
+   nhóm không nhãn. Dùng **trọng số phân đoạn** (mỗi dòng không nhãn góp `w·p` vào
+   nhóm "trễ" và `w·(1−p)` vào nhóm "đúng hẹn") — chính xác cho trung bình có trọng
+   số, không cần mô phỏng.
+   Tìm **θ\*** nơi ước lượng khoảng cách chạm 0. Câu trả lời cần có dạng: *"kết luận
+   +0,234 chỉ đổ nếu nhãn khách kém thông tin hơn X% trong nhóm không nhãn"*.
+   **Kiểm tra bắt buộc:** chạy hàm trên riêng nhóm có nhãn với `p` cứng phải tái lập
+   đúng **0,2344** — nếu không thì hàm sai.
+3. **Bootstrap KTC** tại vài giá trị θ (1,0 · θ\* · 0,5 · 0) — không quét cả dải,
+   quá tốn.
+4. **Test** cho module (chưa có dòng nào) — ít nhất ca tái lập 0,2344 ở bước 2.
+
+### Ba phương án đã cân nhắc (phiên 2026-09-09 dừng ở đây vì chi phí)
+
+| | Nội dung | Chi phí |
+|---|---|---|
+| **A** | Chạy đủ mục 1–4, có bootstrap | cao nhất |
+| **B** | Mục 1, 2, 4 — **bỏ bootstrap**; vẫn ra θ\*, chỉ thiếu KTC quanh nó | vừa ← *khuyến nghị* |
+| **C** | Dừng, chỉ ghi phát hiện kỷ nguyên vào tài liệu | thấp nhất |
+
+Phiên 2026-09-09 đã làm xong phần mô tả (nằm ngoài cả ba phương án) và **dừng trước
+mục 1**. Phiên sau bắt đầu từ mục 1, mặc định theo **phương án B** trừ khi nhóm đổi ý.
+
+### Lưu ý chi phí
+
+Phiên 2026-09-09 tốn **$62** và bị hook cảnh báo mức CRITICAL. Bootstrap theo cụm
+trên 114.672 dòng là phần đắt nhất. Nếu chạy, cân nhắc `n_boot=1000` thay vì 2.000
+và chỉ tại 3–4 giá trị θ.

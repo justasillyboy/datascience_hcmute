@@ -1,0 +1,43 @@
+# Độ nhạy MNAR — nguồn: data/processed/reviews_clean.parquet
+
+## A. Độ phủ nhãn
+
+  toàn mẫu phân tích được  thô 9.93%   trọng số 11.16%
+  kỷ nguyên 2023+ (46,291 dòng)  thô 24.61%   trọng số 29.47%
+
+          n  có_nhãn  % có nhãn
+nam                            
+2017    220        0       0.00
+2018    564        0       0.00
+2019   2064        0       0.00
+2020  10072        0       0.00
+2021  26184        0       0.00
+2022  29206        0       0.00
+2023  15765     2759      17.50
+2024  11913     3501      29.39
+2025  11093     3083      27.79
+2026   7520     2048      27.23
+
+  → Trước 2023 độ phủ đúng bằng 0: trường chưa tồn tại.
+    Đây là thiếu DO THIẾT KẾ, không phải chọn lọc — và không chặn được
+    bằng giả định, vì nhóm đó chưa bao giờ có cơ hội mang nhãn.
+
+## B. Chọn lọc thật nhỏ hơn vẻ ngoài
+
+  nhóm                              n   rating   lead TB   vượt SLA
+  -----------------------------------------------------------------
+  gộp có nhãn                  11,391    4.912      1.38      1.78%
+  gộp không nhãn              103,281    4.766      2.31      7.96%
+  kỷ nguyên có nhãn            11,391    4.912      1.38      1.78%
+  kỷ nguyên không nhãn         34,900    4.862      1.55      2.77%
+  trước kỷ nguyên              68,381    4.725      2.64     10.19%
+
+  Bội số 'vượt SLA' không-nhãn / có-nhãn:
+    so gộp             4.5×  ← phần lớn là hiệu ứng thời kỳ
+    so trong kỷ nguyên 1.6×  ← chọn lọc thật
+
+  Chênh rating: gộp +0.146 → trong kỷ nguyên +0.050
+
+
+## C. Chặn Manski + điểm gãy θ — CHƯA LÀM
+  Xem CLAUDE.md §9.1 (ba phương án A/B/C đã cân nhắc).
