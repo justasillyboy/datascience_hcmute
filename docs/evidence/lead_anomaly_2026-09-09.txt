@@ -1,0 +1,63 @@
+# Điều tra `lead_days` âm — nguồn: data/processed/reviews_clean.parquet
+
+## 1. Hai đồng hồ của Tiki lệch bao nhiêu?
+
+  (review_created_date dạng chuỗi) − (created_at epoch đọc theo UTC)
+  n = 115,948 · trung bình 7.0000 h · độ lệch chuẩn 0.000000 h
+  min 7.0000 h · max 7.0000 h
+  → hằng số dùng trong code: VN_UTC_OFFSET = 7 h
+  Phương sai bằng 0 nghĩa là đây là quy ước múi giờ, không phải nhiễu.
+
+## 2. Mốc nào bị lệch chỗ?
+
+  số dòng âm                         1,181
+  ngày đặt SAU ngày viết review      92.7%   (nhóm bình thường: 0.00%)
+  ngày giao TRƯỚC ngày viết review   100.0%
+  trễ viết review (ngày) — âm 2.79 · bình thường 4.05
+  ngày đặt muộn hơn review (trung vị) 47.8 ngày
+  trải trên 511 sản phẩm · 116 nhà bán
+
+  → Quan hệ giao→review còn nguyên; chính `purchased_at` rơi ra ngoài.
+
+## 3. Tỉ lệ bất thường theo tuổi review
+
+               n  bất_thường  tỉ lệ %
+nhóm tuổi                            
+<1 năm     11063          40     0.36
+1–2        11865          68     0.57
+2–3        11522          89     0.77
+3–4        20778         182     0.88
+4–5        31789         441     1.39
+5–6        20522         237     1.15
+6+          8409         124     1.47
+
+  tương quan hạng với tuổi: +0.950  (0.36% → 1.47%, gấp 4.1 lần)
+
+## 4. Theo ngành hàng
+
+                                n  bất_thường  tỉ lệ %  bội số
+category_name                                                 
+Thể thao - Dã ngoại          1024          24     2.34    2.34
+Thời trang nữ               20620         421     2.04    2.04
+Mẹ và bé                    20396         282     1.38    1.38
+Điện thoại - Máy tính bảng    400           5     1.25    1.25
+Sách tiếng Việt             13988         119     0.85    0.85
+Điện gia dụng                6492          52     0.80    0.80
+Làm đẹp - Sức khỏe          12697          73     0.57    0.57
+Nhà cửa - Đời sống          34509         191     0.55    0.55
+Nhà sách tiki                7671          14     0.18    0.18
+Bách hóa online                22           0     0.00    0.00
+
+
+## 5. Loại chúng ra có cắt mất khách bất mãn không?
+
+  chiếm 1.52% quần thể (có trọng số)
+
+                            dòng âm    còn lại
+  rating TB (trọng số)        4.854      4.780
+  % 1 sao (trọng số)           1.87       1.47
+  % ≤3 sao (trọng số)          3.24       3.99
+
+  Đếm THÔ (sai — mẫu phân tầng, chỉ để đối chiếu):
+  rating TB thô               4.257      4.336
+  % 1 sao thô                 10.58       5.43

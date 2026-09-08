@@ -1,0 +1,47 @@
+# Kiểm chứng khả năng thu thập — các sàn TMĐT Việt Nam
+# Thời điểm chạy: 2026-09-08T12:23:03+07:00
+# Nguyên tắc: chỉ đọc · 1 request/phép thử · không lách chặn
+
+========================================================================
+TIKI
+========================================================================
+  phép thử                          : Tiki — API review công khai
+  url                               : https://tiki.vn/api/v2/reviews
+  http                              : 200
+  kích thước                        : 13625
+  trích body                        : {"stars":{"1":{"count":4,"percent":5},"2":{"count":3,"percent":3},"3":{"count":4,"percent":5},"4":{"count":9,"percent":12},"5":{"count":59,"percent":75}},"rating_average":4.5,"reviews_count":79,"review_photo":{"total":24
+  số review trả về                  : 5
+  trường tìm thấy                   : {'ngày đặt hàng (created_by.purchased_at)': True, 'ngày giao thực tế (timeline.delivery_date)': True, 'điểm hài lòng (rating)': True, 'nhãn khách tự báo (delivery_rating)': True}
+  kết luận                          : ✅ DÙNG ĐƯỢC — có đủ trường bắt buộc
+
+========================================================================
+SHOPEE
+========================================================================
+  phép thử                          : Shopee — API review công khai
+  url                               : https://shopee.vn/api/v4/item/get_ratings
+  http                              : 403
+  kích thước                        : 160
+  trích body                        : {"is_customized":false,"is_login":false,"action_type":2,"error":90309999,"tracking_id":"5898c35fca1-ab38-4e79-930b-a7415d5c662d","redirect_to_error_page":true}
+  kết luận                          : ❌ BỊ CHẶN — WAF trả 403, không lấy được payload review
+
+========================================================================
+LAZADA
+========================================================================
+  phép thử                          : Lazada — trang danh mục
+  url                               : https://www.lazada.vn/catalog/?q=sach
+  http                              : 200
+  kích thước                        : 62149
+  trích body                        : <!DOCTYPE html> <html lang="vi">   <head>     <meta charset="utf-8" />     <meta name="data-spm" content="a2o4n" />     <meta http-equiv="x-ua-compatible" content="ie=edge" />     <meta name="viewport" content="width=d
+  số itemId nhúng sẵn               : 0
+  dấu hiệu anti-bot                 : ['baxia']
+  kết luận                          : ❌ KHÔNG DÙNG ĐƯỢC — dữ liệu render bằng JS, có anti-bot Baxia
+
+========================================================================
+SENDO
+========================================================================
+  phép thử                          : Sendo — trang chủ
+  url                               : https://www.sendo.vn/robots.txt
+  trạng thái                        : LỖI MẠNG
+  chi tiết                          : ConnectTimeout: HTTPSConnectionPool(host='www.sendo.vn', port=443): Max retries exceeded with url: /robots.txt (Caused by ConnectTimeoutError(<urllib3.connection.HTTPSConnection object at 0x107229670>, 'Connection to www.sendo.vn timed out. (connect timeout=25)'))
+  kết luận                          : ❌ KHÔNG TRUY CẬP ĐƯỢC
+

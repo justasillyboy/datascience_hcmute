@@ -1,0 +1,15 @@
+# Dữ liệu thô KHÔNG được public (cam kết đạo đức trong CLAUDE.md §6).
+# Chặn CẢ thư mục data/ chứ không liệt kê từng thư mục con: cách liệt kê đã để
+# lọt `data/raw_v2/` khi mở rộng mẻ cào ngày 2026-09-08. Mặc định phải là chặn.
+data/
+
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+.env
+.DS_Store
+.pytest_cache/
+reports/figures/*.png
+logs_*.txt
