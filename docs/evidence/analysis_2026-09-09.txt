@@ -2,58 +2,58 @@
 
 ## Quy mô mẫu
 
-  review                 117,819
+  review                 203,510
   sản phẩm               2,438
   nhà bán                366
   ngành hàng             10
-  quần thể ước lượng     438,248
-  phân tích được         114,672 (97.33%)
+  quần thể ước lượng     438,255
+  phân tích được         198,355 (97.47%)
 
 ## Chất lượng
 
-  ok                        114,672   97.33%
-  thiếu delivery_date         1,806    1.53%
-  lead_days âm                1,181    1.00%
-  thiếu purchased_at            150    0.13%
-  lead_days > 90 ngày            10    0.01%
+  ok                        198,355   97.47%
+  thiếu delivery_date         3,064    1.51%
+  lead_days âm                1,799    0.88%
+  thiếu purchased_at            280    0.14%
+  lead_days > 90 ngày            12    0.01%
 
 ## Thời gian giao (có trọng số)
 
-  p10     0.12 ngày
-  p25     0.66 ngày
-  p50     1.30 ngày
-  p75     2.65 ngày
-  p90     4.35 ngày
-  p95     5.93 ngày
-  p99    17.75 ngày
+  p10     0.11 ngày
+  p25     0.65 ngày
+  p50     1.26 ngày
+  p75     2.63 ngày
+  p90     4.33 ngày
+  p95     5.92 ngày
+  p99    18.62 ngày
   trung bình 2.21 · tối đa 90.0
 
-  Vượt SLA (5 ngày): 7.27% (có trọng số)
+  Vượt SLA (5 ngày): 7.12% (có trọng số)
 
   Theo năm — mẫu trải 12 năm nên KHÔNG được gộp khi nói 'hiện tại':
-    2017  n=   220  p90= 6.35  vượt SLA=20.84%
-    2018  n=   564  p90= 5.17  vượt SLA=11.04%
-    2019  n= 2,064  p90= 4.79  vượt SLA= 8.45%
-    2020  n=10,072  p90= 4.38  vượt SLA= 6.99%
-    2021  n=26,184  p90= 7.86  vượt SLA=17.48%
-    2022  n=29,206  p90= 3.96  vượt SLA= 5.06%
-    2023  n=15,765  p90= 3.16  vượt SLA= 1.98%
-    2024  n=11,913  p90= 2.95  vượt SLA= 1.56%
-    2025  n=11,093  p90= 3.71  vượt SLA= 3.97%
-    2026  n= 7,520  p90= 3.61  vượt SLA= 3.06%
+    2017  n=   439  p90= 6.12  vượt SLA=17.17%
+    2018  n=   887  p90= 5.66  vượt SLA=12.59%
+    2019  n= 3,269  p90= 4.93  vượt SLA= 9.11%
+    2020  n=18,458  p90= 4.23  vượt SLA= 5.98%
+    2021  n=52,584  p90= 7.61  vượt SLA=16.75%
+    2022  n=54,829  p90= 3.93  vượt SLA= 4.62%
+    2023  n=26,591  p90= 3.10  vượt SLA= 2.07%
+    2024  n=18,369  p90= 2.92  vượt SLA= 1.42%
+    2025  n=14,458  p90= 3.50  vượt SLA= 3.27%
+    2026  n= 8,355  p90= 3.58  vượt SLA= 3.30%
 
-## Bảng chéo (n = 11,391 review có nhãn)
+## Bảng chéo (n = 15,816 review có nhãn)
 
 customer_says_late  Khách: trễ hẹn  Khách: đúng hẹn
 sla_status                                         
-Giao sớm                       207            10859
-Giao trễ                        51              274
+Giao sớm                       252            15160
+Giao trễ                        65              339
 
 ## Ước lượng chính
 
-  % than phiền trễ hẹn đến từ đơn TRONG SLA: 86.2710 [77.3248, 93.0075] (95% CI, n=258, n_eff=48, cụm=218)  ⚠️ MONG MANH
-  % đơn VƯỢT SLA mà khách nói đúng hẹn: 88.3804 [80.8647, 94.0277] (95% CI, n=325, n_eff=99, cụm=258)  ⚠️ MONG MANH
-  Chênh lệch sức phân biệt (nhãn khách − SLA): 0.2344 [0.1131, 0.3929] (95% CI, n=11,391, n_eff=1960, cụm=1,914)
+  % than phiền trễ hẹn đến từ đơn TRONG SLA: 83.5254 [75.2118, 89.7647] (95% CI, n=317, n_eff=85, cụm=245)  ⚠️ MONG MANH
+  % đơn VƯỢT SLA mà khách nói đúng hẹn: 83.8151 [76.8027, 89.9446] (95% CI, n=404, n_eff=130, cụm=295)
+  Chênh lệch sức phân biệt (nhãn khách − SLA): 0.2082 [0.0966, 0.3525] (95% CI, n=15,816, n_eff=4689, cụm=1,916)
 
   Ghi chú: ước lượng bị gắn ⚠️ MONG MANH có cỡ mẫu hiệu dụng thấp —
   báo cáo dưới dạng khoảng, KHÔNG dùng làm kết luận chính.

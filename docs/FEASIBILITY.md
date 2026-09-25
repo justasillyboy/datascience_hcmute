@@ -1,7 +1,8 @@
 # Báo cáo kiểm chứng khả thi dữ liệu
 
 **Ngày thực hiện:** 2026-09-07, bổ sung §6 ngày 2026-09-08 · **Nguồn:** Tiki public API
-**Mẫu cuối:** 117.819 review / 2.438 sản phẩm / 366 nhà bán / 10 ngành hàng
+**Mẫu cuối:** 203.510 review / 2.438 sản phẩm / 366 nhà bán / 10 ngành hàng
+(mẻ trước 117.819 review ở `data/archive_v2/`; mẻ đầu 66.851 review ở `data/archive_v1/`)
 *(§1–§5 viết trên mẻ thử 3.811 review / 120 sản phẩm; các kết luận định tính đều giữ nguyên trên mẫu đầy đủ.)*
 
 Tài liệu này ghi lại *bằng chứng đo được*, không phải phỏng đoán. Mọi con số dưới đây đều tái lập được bằng `src/collect/`.
@@ -73,9 +74,9 @@ Trường hợp cuối chính là cấu trúc `order_items` của Olist: nhiều
 | âm (<0) | 13 / 490 = **2.7%** | *chưa đo lại* |
 | > 60 ngày | 0 | 0 |
 
-Đây là số **pilot** (n=490). Con số chính thức nay lấy từ mẻ đầy đủ 114.672 dòng
-phân tích được: trung vị có trọng số **1.30 ngày**, tỉ lệ âm **1.00%**
-([`FINDINGS.md §2`](FINDINGS.md)).
+Đây là số **pilot** (n=490). Con số chính thức nay lấy từ mẻ đầy đủ 198.355 dòng
+phân tích được (mẻ 117.819 trước đây: 114.672): trung vị có trọng số **1.26 ngày**
+(trước: 1.30), tỉ lệ âm **0.88%** (trước: 1.00%) ([`FINDINGS.md §2`](FINDINGS.md)).
 
 Giá trị âm **là vấn đề dữ liệu thật** — đã điều tra xong ngày 2026-09-09: nguyên
 nhân là `purchased_at` ghi lần mua **gần nhất** của khách với sản phẩm đó, nên khi
@@ -268,17 +269,20 @@ Tiki mà không cần đổi nguồn:
 
 | | Hiện tại | Dư địa |
 |---|---|---|
-| Review đã lấy | 117.819 | **26,9%** của 438.295 review có sẵn *trên chính 2.438 sản phẩm này* |
+| Review đã lấy | 203.510 | **46,4%** của 438.295 review có sẵn *trên chính 2.438 sản phẩm này* |
 | Sản phẩm | 2.438 | giới hạn bởi `--max-pages 20`, còn nâng được |
 | Ngành hàng | 10 | Tiki có hàng nghìn category |
 
 Nếu cần thêm dữ liệu thì nới `sample_cap` và chạy lại, chứ không phải đổi sàn.
 
 **Đã kiểm chứng ngày 2026-09-08:** mở rộng từ 66.851 → **117.819 review (+76%)**
-chỉ tốn 1 giờ 37 phút, không cần đổi nguồn. Nhưng mẻ mở rộng cũng cho thấy thêm dữ
-liệu **không tự động** làm kết quả chắc hơn — hai ước lượng bị lật vì cỡ mẫu hiệu
-dụng quá thấp (`FINDINGS.md §5`). Cái cần tăng là `n_eff` của đúng nhóm con liên
-quan, không phải tổng số dòng.
+chỉ tốn 1 giờ 37 phút, không cần đổi nguồn. **Kiểm chứng lần hai ngày 2026-09-09:**
+nới `--sample-cap 60 → 200` (giữ nguyên 2.438 sản phẩm) đưa mẫu lên **203.510 review
+(+73%)**, tốn 1 giờ 30 phút, độ phủ quần thể 26,9% → 46,4%. Nhưng cả hai lần mở
+rộng đều cho thấy thêm dữ liệu **không tự động** làm mọi kết quả chắc hơn — ở lần
+đầu hai ước lượng bị lật vì cỡ mẫu hiệu dụng quá thấp (`FINDINGS.md §5`); ở lần hai,
+kết luận chính tiếp tục sống sót và `n_eff` tăng 139% (1.960 → 4.689). Cái cần tăng
+là `n_eff` của đúng nhóm con liên quan, không phải tổng số dòng.
 
 **"Sàn khác chất lượng hơn"** — với đề tài *này* thì ngược lại. Tiki cho **cả
 hai** thứ cần thiết cùng lúc:
