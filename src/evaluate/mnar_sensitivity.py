@@ -20,7 +20,7 @@ Chạy:  python3 -m src.evaluate.mnar_sensitivity
 """
 
 from __future__ import annotations
-
+import re
 import argparse
 from pathlib import Path
 from src.evaluate.stats import effective_sample_size
@@ -150,6 +150,518 @@ def manski_bounds(d: pd.DataFrame) -> dict[str, float]:
         "upper_pct": upper,
         "n_eff": n_eff,
     }
+# ============================================================
+# A2 — THETA SENSITIVITY
+# ============================================================
+
+THETA_STEP = 0.001
+
+
+def _weighted_mean(values, weights):
+    """Weighted mean, dùng cho cả trọng số nguyên và phân đoạn."""
+    v = np.asarray(values, dtype=float)
+    w = np.asarray(weights, dtype=float)
+
+    mask = np.isfinite(v) & np.isfinite(w) & (w >= 0)
+
+    if not np.any(mask):
+        raise ValueError("Không có dữ liệu hợp lệ để tính weighted mean.")
+
+    v = v[mask]
+    w = w[mask]
+
+    total_w = w.sum()
+
+    if total_w <= 0:
+        raise ValueError("Tổng trọng số phải > 0.")
+
+    return float(np.dot(v, w) / total_w)
+
+
+def fractional_weights(weights, p):
+    """
+    Trọng số phân đoạn cho một dòng:
+
+        late_weight    = w * p
+        ontime_weight  = w * (1-p)
+
+    Hai phần phải cộng lại đúng bằng w.
+    """
+    w = np.asarray(weights, dtype=float)
+    p = np.asarray(p, dtype=float)
+
+    if np.any(~np.isfinite(w)) or np.any(w < 0):
+        raise ValueError("weights phải hữu hạn và >= 0.")
+
+    if np.any(~np.isfinite(p)) or np.any((p < 0) | (p > 1)):
+        raise ValueError("p phải nằm trong [0, 1].")
+
+    late_weight = w * p
+    ontime_weight = w * (1.0 - p)
+
+    return late_weight, ontime_weight
+
+
+def _prepare_theta_components(d):
+    """
+    Tính các thành phần cố định cho A2:
+
+    - p_bar: tỷ lệ khách nói trễ trong toàn nhóm có nhãn
+    - p_MAR(rating, sla_breach): tỷ lệ khách nói trễ trong từng ô
+    """
+    required = {
+        "rating",
+        "sla_breach",
+        "customer_says_late",
+        "weight",
+    }
+
+    missing = required - set(d.columns)
+
+    if missing:
+        raise KeyError(
+            f"Thiếu cột bắt buộc cho A2: {sorted(missing)}"
+        )
+
+    labelled = d[d["customer_says_late"].notna()].copy()
+
+    if labelled.empty:
+        raise ValueError(
+            "A2 không có review có nhãn để ước lượng p_MAR."
+        )
+
+    labelled["rating"] = labelled["rating"].astype(float)
+    labelled["sla_breach"] = labelled["sla_breach"].astype(bool)
+
+    y = labelled["customer_says_late"].astype(bool).astype(float).to_numpy()
+    w = labelled["weight"].to_numpy(float)
+
+    p_bar = _weighted_mean(y, w)
+
+    p_mar = {}
+
+    for key, g in labelled.groupby(
+        ["rating", "sla_breach"],
+        dropna=False,
+        observed=True,
+    ):
+        gw = g["weight"].to_numpy(float)
+        gy = (
+            g["customer_says_late"]
+            .astype(bool)
+            .astype(float)
+            .to_numpy()
+        )
+
+        if gw.sum() <= 0:
+            raise ValueError(
+                f"Ô {key} có tổng trọng số <= 0."
+            )
+
+        p_mar[(float(key[0]), bool(key[1]))] = _weighted_mean(
+            gy,
+            gw,
+        )
+
+    # Theo đặc tả A2, p_MAR phải được ước lượng riêng từng ô.
+    # Không tự động lấp ô thiếu nhãn bằng p_bar.
+    expected_cells = {
+        (float(r), bool(b))
+        for r in sorted(d["rating"].dropna().unique())
+        for b in [False, True]
+    }
+
+    missing_cells = sorted(
+        expected_cells - set(p_mar.keys())
+    )
+
+    if missing_cells:
+        raise ValueError(
+            "Không thể tính p_MAR cho các ô không có nhãn: "
+            f"{missing_cells}. "
+            "Không tự ý thay bằng p_bar vì như vậy đã thêm giả định."
+        )
+
+    return p_bar, p_mar
+
+
+def _build_theta_probabilities(
+    d,
+    theta,
+    *,
+    hard_labels=False,
+    p_bar=None,
+    p_mar=None,
+):
+    """
+    Tạo xác suất 'khách nói trễ' cho từng dòng.
+
+    Bình thường:
+        - dòng có nhãn  -> nhãn thật
+        - dòng không nhãn -> p_i(theta)
+
+    A3:
+        hard_labels=True
+        -> ép toàn bộ p bằng nhãn thật.
+    """
+    theta = float(theta)
+
+    if not 0.0 <= theta <= 1.0:
+        raise ValueError("theta phải nằm trong [0, 1].")
+
+    labelled_mask = d["customer_says_late"].notna().to_numpy()
+
+    if hard_labels:
+        if not labelled_mask.all():
+            raise ValueError(
+                "hard_labels=True nhưng d vẫn chứa dòng không nhãn."
+            )
+
+        return (
+            d["customer_says_late"]
+            .astype(bool)
+            .astype(float)
+            .to_numpy()
+        )
+
+    if p_bar is None or p_mar is None:
+        p_bar, p_mar = _prepare_theta_components(d)
+
+    rating = d["rating"].astype(float).to_numpy()
+    sla = d["sla_breach"].astype(bool).to_numpy()
+
+    p = np.empty(len(d), dtype=float)
+
+    # Nhãn thật giữ nguyên.
+    p[labelled_mask] = (
+        d.loc[labelled_mask, "customer_says_late"]
+        .astype(bool)
+        .astype(float)
+        .to_numpy()
+    )
+
+    # Nhóm không nhãn dùng p_i(theta).
+    unlabelled_mask = ~labelled_mask
+
+    if np.any(unlabelled_mask):
+        cell_p = np.array(
+            [
+                p_mar[(float(r), bool(s))]
+                for r, s in zip(
+                    rating[unlabelled_mask],
+                    sla[unlabelled_mask],
+                )
+            ],
+            dtype=float,
+        )
+
+        p[unlabelled_mask] = (
+            theta * cell_p
+            + (1.0 - theta) * p_bar
+        )
+
+    return p
+
+
+def theta_estimate(
+    d,
+    theta,
+    *,
+    hard_labels=False,
+    p_bar=None,
+    p_mar=None,
+):
+    """
+    Tính kết luận chính tại một giá trị theta.
+
+    Không bootstrap.
+    Trọng số được chia thành:
+        w*p
+        w*(1-p)
+    """
+    work = d.copy()
+
+    work["rating"] = work["rating"].astype(float)
+    work["sla_breach"] = work["sla_breach"].astype(bool)
+
+    if not hard_labels and (p_bar is None or p_mar is None):
+        p_bar, p_mar = _prepare_theta_components(work)
+
+    p = _build_theta_probabilities(
+        work,
+        theta,
+        hard_labels=hard_labels,
+        p_bar=p_bar,
+        p_mar=p_mar,
+    )
+
+    ratings = work["rating"].to_numpy(float)
+    weights = work["weight"].to_numpy(float)
+    sla = work["sla_breach"].to_numpy(bool)
+
+    # --------------------------------------------------------
+    # 1. Customer label — trọng số phân đoạn
+    # --------------------------------------------------------
+
+    customer_late_w, customer_ontime_w = fractional_weights(
+        weights,
+        p,
+    )
+
+    customer_late_mean = _weighted_mean(
+        ratings,
+        customer_late_w,
+    )
+
+    customer_ontime_mean = _weighted_mean(
+        ratings,
+        customer_ontime_w,
+    )
+
+    customer_power = abs(
+        customer_late_mean
+        - customer_ontime_mean
+    )
+
+    # --------------------------------------------------------
+    # 2. SLA — hoàn toàn quan sát được
+    # --------------------------------------------------------
+
+    sla_breach_w = weights * sla.astype(float)
+    sla_ontime_w = weights * (~sla).astype(float)
+
+    sla_breach_mean = _weighted_mean(
+        ratings,
+        sla_breach_w,
+    )
+
+    sla_ontime_mean = _weighted_mean(
+        ratings,
+        sla_ontime_w,
+    )
+
+    sla_power = abs(
+        sla_breach_mean
+        - sla_ontime_mean
+    )
+
+    # --------------------------------------------------------
+    # 3. Kết luận chính
+    # --------------------------------------------------------
+
+    return float(customer_power - sla_power)
+
+
+def theta_scan(
+    d,
+    *,
+    theta_step=THETA_STEP,
+    hard_labels=False,
+):
+    """
+    Quét theta từ 0 -> 1.
+
+    Trả về DataFrame:
+        theta
+        estimate
+    """
+    if theta_step <= 0 or theta_step > 1:
+        raise ValueError("theta_step phải thuộc (0, 1].")
+
+    p_bar = None
+    p_mar = None
+
+    if not hard_labels:
+        p_bar, p_mar = _prepare_theta_components(d)
+
+    thetas = np.arange(
+        0.0,
+        1.0 + theta_step / 2.0,
+        theta_step,
+    )
+
+    rows = []
+
+    for theta in thetas:
+        rows.append(
+            {
+                "theta": float(theta),
+                "estimate": theta_estimate(
+                    d,
+                    theta,
+                    hard_labels=hard_labels,
+                    p_bar=p_bar,
+                    p_mar=p_mar,
+                ),
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
+def find_theta_star(scan_df):
+    """
+    Tìm theta* nơi estimate chạm 0.
+
+    Nếu có một khoảng đổi dấu:
+        nội suy tuyến tính trong chính khoảng đó.
+
+    Không dùng simulation.
+    """
+    x = scan_df["theta"].to_numpy(float)
+    y = scan_df["estimate"].to_numpy(float)
+
+    roots = []
+
+    for i in range(len(scan_df)):
+        if np.isclose(y[i], 0.0, atol=1e-12):
+            roots.append(float(x[i]))
+
+    for i in range(len(scan_df) - 1):
+        y1 = y[i]
+        y2 = y[i + 1]
+
+        if y1 == 0 or y2 == 0:
+            continue
+
+        if y1 * y2 < 0:
+            x1 = x[i]
+            x2 = x[i + 1]
+
+            # Nội suy tuyến tính trong khoảng đổi dấu.
+            root = x1 + (0.0 - y1) * (x2 - x1) / (y2 - y1)
+
+            roots.append(float(root))
+
+    roots = sorted(set(round(r, 10) for r in roots))
+
+    if not roots:
+        return None
+
+    if len(roots) > 1:
+        raise ValueError(
+            f"Có nhiều điểm gãy theta*: {roots}. "
+            "Không tự chọn một nghiệm."
+        )
+
+    return roots[0]
+
+
+# ============================================================
+# A3 — ĐỌC GIÁ TRỊ HIỆN HÀNH TỪ FINDINGS.MD
+# ============================================================
+
+def _find_findings_path():
+    candidates = [
+        Path("docs/FINDINGS.md"),
+        Path("FINDINGS.md"),
+    ]
+
+    for path in candidates:
+        if path.exists():
+            return path
+
+    raise FileNotFoundError(
+        "Không tìm thấy docs/FINDINGS.md hoặc FINDINGS.md."
+    )
+
+
+def read_current_main_estimate(findings_path=None):
+    """
+    Đọc estimate hiện hành từ §4 của FINDINGS.md.
+
+    Không hard-code 0.2082.
+    """
+    path = findings_path or _find_findings_path()
+
+    text = path.read_text(
+        encoding="utf-8",
+    )
+
+    match_section = re.search(
+        r"(?ms)^##\s*4\.\s*Kết luận chính\b"
+        r"(.*?)(?=^##\s|\Z)",
+        text,
+    )
+
+    if not match_section:
+        raise ValueError(
+            f"Không tìm thấy §4 trong {path}."
+        )
+
+    section = match_section.group(1)
+
+    match_value = re.search(
+        r"chênh lệch\s+"
+        r"([+-]?\d+(?:[.,]\d+)?)"
+        r"\s*điểm\s+rating",
+        section,
+        flags=re.IGNORECASE,
+    )
+
+    if not match_value:
+        raise ValueError(
+            f"Không tìm được estimate trong §4 của {path}."
+        )
+
+    value = match_value.group(1).replace(",", ".")
+
+    return float(value)
+
+
+def a3_self_check(
+    d,
+    findings_path=None,
+    *,
+    tolerance=5e-5,
+):
+    """
+    A3:
+
+    - chỉ dùng nhóm có nhãn
+    - ép p bằng đúng nhãn thật
+    - chạy chính theta_scan()
+    - so với FINDINGS.md hiện hành
+    """
+    labelled = d[d["customer_says_late"].notna()].copy()
+
+    if labelled.empty:
+        raise ValueError(
+            "A3 không có dữ liệu có nhãn."
+        )
+
+    target = read_current_main_estimate(
+        findings_path
+    )
+
+    scan = theta_scan(
+        labelled,
+        theta_step=THETA_STEP,
+        hard_labels=True,
+    )
+
+    observed = float(scan.iloc[0]["estimate"])
+
+    if not np.isclose(
+        observed,
+        target,
+        atol=tolerance,
+        rtol=0.0,
+    ):
+        raise AssertionError(
+            "A3 FAIL:\n"
+            f"  FINDINGS.md = {target:+.6f}\n"
+            f"  theta_scan  = {observed:+.6f}\n"
+            f"  sai khác    = {observed - target:+.6f}"
+        )
+
+    return {
+        "target": target,
+        "observed": observed,
+        "difference": observed - target,
+        "passed": True,
+        "scan": scan,
+    }
 def main() -> None:
     ap = argparse.ArgumentParser(description="Độ nhạy MNAR (đang làm dở)")
     ap.add_argument("--data", type=Path, default=Path("data/processed/reviews_clean.parquet"))
@@ -245,7 +757,129 @@ def main() -> None:
         "    Upper = mọi review không nhãn "
         "đều được giả định là trễ."
     )
+        # ========================================================
+    # A2 — QUÉT THETA
+    # ========================================================
 
+    print("\n" + "=" * 70)
+    print("A2 — QUÉT ĐIỂM GÃY THETA")
+    print("=" * 70)
+
+    data = pd.read_parquet(args.data)
+
+    data = prepare(data)
+
+    # Chỉ chạy trong kỷ nguyên 2023+
+    era = data[data["nam"] >= LABEL_ERA_START].copy()
+
+    print(
+        f"\nKỷ nguyên: {LABEL_ERA_START}+"
+    )
+    print(
+        f"n phân tích được: {len(era):,}"
+    )
+
+    labelled = era[
+        era["customer_says_late"].notna()
+    ]
+
+    print(
+        f"n có nhãn: {len(labelled):,}"
+    )
+
+    print(
+        f"n không nhãn: "
+        f"{len(era) - len(labelled):,}"
+    )
+
+    p_bar, p_mar = _prepare_theta_components(era)
+
+    print(
+        f"\np̄ = {p_bar:.6f}"
+    )
+
+    print("\np_MAR theo từng ô (rating × sla_breach):")
+
+    for key in sorted(p_mar):
+        rating, breach = key
+
+        print(
+            f"  rating={rating:.0f}, "
+            f"sla_breach={int(breach)}"
+            f" -> {p_mar[key]:.6f}"
+        )
+
+    scan = theta_scan(
+        era,
+        theta_step=THETA_STEP,
+    )
+
+    theta_star = find_theta_star(scan)
+
+    print("\nĐiểm đầu/cuối:")
+    print(
+        f"  θ = 0.000 -> "
+        f"{scan.iloc[0]['estimate']:+.6f}"
+    )
+    print(
+        f"  θ = 1.000 -> "
+        f"{scan.iloc[-1]['estimate']:+.6f}"
+    )
+
+    if theta_star is None:
+        print(
+            "\nKhông tìm thấy θ* trong [0, 1]."
+        )
+    else:
+        loss = (1.0 - theta_star) * 100.0
+
+        print(
+            f"\nθ* = {theta_star:.6f}"
+        )
+
+        print(
+            "Diễn giải:"
+        )
+
+        print(
+            f'  Kết luận hiện hành chỉ sụp khi '
+            f'nhãn khách còn khoảng '
+            f'{theta_star * 100:.2f}% '
+            f'thông tin so với MAR.'
+        )
+
+        print(
+            f'  Tương đương phải kém hơn khoảng '
+            f'{loss:.2f}% so với giả định MAR.'
+        )
+
+    # ========================================================
+    # A3 — SELF CHECK
+    # ========================================================
+
+    print("\n" + "=" * 70)
+    print("A3 — SELF CHECK")
+    print("=" * 70)
+
+    check = a3_self_check(
+        labelled,
+        findings_path=_find_findings_path(),
+    )
+
+    print(
+        f"FINDINGS.md : {check['target']:+.6f}"
+    )
+
+    print(
+        f"theta_scan  : {check['observed']:+.6f}"
+    )
+
+    print(
+        f"sai khác    : "
+        f"{check['difference']:+.6f}"
+    )
+
+    print("\n✅ A3 PASS — theta_scan tái lập kết luận chính.")
 
 if __name__ == "__main__":
     main()

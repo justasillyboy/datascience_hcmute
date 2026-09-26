@@ -1,0 +1,37 @@
+
+Cổng đủ dữ liệu: n_eff >= 100
+Ngành chỉ được báo cáo đầy đủ khi CẢ HAI ô lệch đều đạt cổng n_eff.
+
+[⚠️ KHÔNG ĐỦ DỮ LIỆU] Nhà cửa – Gia dụng
+  n = 8,414
+  n_eff = 2541.10
+  Trong SLA / khách đúng: 96.0895%
+  Trong SLA / khách trễ:   1.8731%
+  Vượt SLA / khách đúng:   1.7089%
+  Vượt SLA / khách trễ:     0.3285%
+  Ô trong SLA / khách trễ: n=158 · n_eff=45.96
+  Ô vượt SLA / khách đúng: n=192 · n_eff=61.33
+
+[⚠️ KHÔNG ĐỦ DỮ LIỆU] Cá nhân – Gia đình
+  n = 5,053
+  n_eff = 2288.43
+  Trong SLA / khách đúng: 96.9363%
+  Trong SLA / khách trễ:   1.2831%
+  Vượt SLA / khách đúng:   1.4553%
+  Vượt SLA / khách trễ:     0.3253%
+  Ô trong SLA / khách trễ: n=71 · n_eff=20.50
+  Ô vượt SLA / khách đúng: n=92 · n_eff=53.77
+
+[⚠️ KHÔNG ĐỦ DỮ LIỆU] Sách – Thể thao – Công nghệ
+  n = 2,349
+  n_eff = 646.68
+  Trong SLA / khách đúng: 97.9198%
+  Trong SLA / khách trễ:   0.5748%
+  Vượt SLA / khách đúng:   1.3151%
+  Vượt SLA / khách trễ:     0.1902%
+  Ô trong SLA / khách trễ: n=23 · n_eff=13.49
+  Ô vượt SLA / khách đúng: n=55 · n_eff=35.54
+
+==============================================================================
+Đã lưu evidence: docs\evidence\c15_category_decomposition.txt
+==============================================================================
