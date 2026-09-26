@@ -1,0 +1,51 @@
+Đọc data\raw\tiki_reviews.parquet — 203,527 dòng thô
+
+Data contract: 11/11 đạt
+  ✓ đủ cột bắt buộc
+  ✓ bảng không rỗng — n=203527
+  ✓ bản sao review_id phải trùng khớp nội dung — 17 bản sao, 0 bản sao mâu thuẫn
+  ✓ rating ∈ {1..5} — 0 dòng ngoài khoảng
+  ✓ độ phủ purchased_at ≥ 95% — thực tế 99.9%
+  ✓ độ phủ delivery_date ≥ 90% — thực tế 98.4%
+  ✓ độ phủ review_created_date ≥ 90% — thực tế 98.4%
+  ✓ độ phủ nhãn giao hàng ≥ 5% — thực tế 7.9%
+  ✓ stratum khớp rating — 0 dòng lệch
+  ✓ số lấy mẫu ≤ kích thước tầng — 0 dòng vi phạm
+  ✓ trọng số ≥ 1 và không rỗng — 0 dòng sai
+INFO Khử trùng lặp: bỏ 17/203527 dòng (0.01%)
+
+Sau làm sạch: 203,510 dòng
+
+Data contract: 22/22 đạt
+  ✓ đủ cột bắt buộc
+  ✓ bảng không rỗng — n=203510
+  ✓ bản sao review_id phải trùng khớp nội dung — 0 bản sao, 0 bản sao mâu thuẫn
+  ✓ rating ∈ {1..5} — 0 dòng ngoài khoảng
+  ✓ độ phủ purchased_at ≥ 95% — thực tế 99.9%
+  ✓ độ phủ delivery_date ≥ 90% — thực tế 98.4%
+  ✓ độ phủ review_created_date ≥ 90% — thực tế 98.4%
+  ✓ độ phủ nhãn giao hàng ≥ 5% — thực tế 7.9%
+  ✓ stratum khớp rating — 0 dòng lệch
+  ✓ số lấy mẫu ≤ kích thước tầng — 0 dòng vi phạm
+  ✓ trọng số ≥ 1 và không rỗng — 0 dòng sai
+  ✓ có cột lead_days
+  ✓ có cột gap_days
+  ✓ có cột quality_flag
+  ✓ có cột is_analysable
+  ✓ có cột sla_breach
+  ✓ review_id là khoá duy nhất (sau khử trùng lặp) — 0 dòng trùng
+  ✓ còn dòng phân tích được — 198355/203510 dòng
+  ✓ dòng phân tích được không có lead_days âm — 0 dòng
+  ✓ gap_days = lead_days − SLA — sai lệch lớn nhất 0.00e+00
+  ✓ dòng phân tích được đều có gap_days — 0 dòng rỗng
+  ✓ dòng bị loại có gap_days rỗng — 0 dòng rò rỉ
+
+                     số dòng  tỉ lệ %
+cờ chất lượng                        
+ok                    198355    97.47
+thiếu delivery_date     3064     1.51
+lead_days âm            1799     0.88
+thiếu purchased_at       280     0.14
+lead_days > 90 ngày       12     0.01
+
+Đã ghi data\processed\reviews_clean.parquet

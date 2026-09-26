@@ -1,0 +1,59 @@
+# Kết quả phân tích — nguồn: data\processed\reviews_clean.parquet
+
+## Quy mô mẫu
+
+  review                 203,510
+  sản phẩm               2,438
+  nhà bán                366
+  ngành hàng             10
+  quần thể ước lượng     438,255
+  phân tích được         198,355 (97.47%)
+
+## Chất lượng
+
+  ok                        198,355   97.47%
+  thiếu delivery_date         3,064    1.51%
+  lead_days âm                1,799    0.88%
+  thiếu purchased_at            280    0.14%
+  lead_days > 90 ngày            12    0.01%
+
+## Thời gian giao (có trọng số)
+
+  p10     0.11 ngày
+  p25     0.65 ngày
+  p50     1.26 ngày
+  p75     2.63 ngày
+  p90     4.33 ngày
+  p95     5.92 ngày
+  p99    18.62 ngày
+  trung bình 2.21 · tối đa 90.0
+
+  Vượt SLA (5 ngày): 7.12% (có trọng số)
+
+  Theo năm — mẫu trải 12 năm nên KHÔNG được gộp khi nói 'hiện tại':
+    2017  n=   439  p90= 6.12  vượt SLA=17.17%
+    2018  n=   887  p90= 5.66  vượt SLA=12.59%
+    2019  n= 3,269  p90= 4.93  vượt SLA= 9.11%
+    2020  n=18,458  p90= 4.23  vượt SLA= 5.98%
+    2021  n=52,584  p90= 7.61  vượt SLA=16.75%
+    2022  n=54,829  p90= 3.93  vượt SLA= 4.62%
+    2023  n=26,591  p90= 3.10  vượt SLA= 2.07%
+    2024  n=18,369  p90= 2.92  vượt SLA= 1.42%
+    2025  n=14,458  p90= 3.50  vượt SLA= 3.27%
+    2026  n= 8,355  p90= 3.58  vượt SLA= 3.30%
+
+## Bảng chéo (n = 15,816 review có nhãn)
+
+customer_says_late  Khách: trễ hẹn  Khách: đúng hẹn
+sla_status                                         
+Giao sớm                       252            15160
+Giao trễ                        65              339
+
+## Ước lượng chính
+
+  % than phiền trễ hẹn đến từ đơn TRONG SLA: 83.5254 [75.2118, 89.7647] (95% CI, n=317, n_eff=85, cụm=245)  ⚠️ MONG MANH
+  % đơn VƯỢT SLA mà khách nói đúng hẹn: 83.8151 [76.8027, 89.9446] (95% CI, n=404, n_eff=130, cụm=295)
+  Chênh lệch sức phân biệt (nhãn khách − SLA): 0.2082 [0.0966, 0.3525] (95% CI, n=15,816, n_eff=4689, cụm=1,916)
+
+  Ghi chú: ước lượng bị gắn ⚠️ MONG MANH có cỡ mẫu hiệu dụng thấp —
+  báo cáo dưới dạng khoảng, KHÔNG dùng làm kết luận chính.
