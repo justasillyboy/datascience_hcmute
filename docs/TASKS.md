@@ -4,7 +4,165 @@
 > rồi chia việc còn lại cho 3 người. Mọi con số dưới đây đã kiểm lại trực tiếp trên
 > `data/processed/reviews_clean.parquet`, không chép từ tài liệu.
 >
-> **Ngày:** 2026-09-22 · **Căn cứ:** `docs/FINDINGS.md`, `CLAUDE.md` §9–§9.1, `README.md`
+> **Ngày:** 2026-09-22 · **Cập nhật:** 2026-09-26 (gỡ phụ thuộc vào `CLAUDE.md`) ·
+> **Căn cứ:** `docs/FINDINGS.md`, `README.md`, và **Phần 0** ngay dưới đây.
+
+> ⚠️ **Vì sao có bản cập nhật này:** bản gốc của file này viện dẫn rất nhiều chỗ tới
+> `CLAUDE.md` (§4, §5, §6, §7, §8, §9, §9.1). File đó nằm trong `.gitignore` — bất kỳ
+> ai clone repo, kể cả 3 người còn lại trong nhóm, sẽ **không** thấy nó. Bản này đã
+> trích nguyên văn mọi phần cần thiết vào **Phần 0** bên dưới, để tài liệu tự đủ
+> nghĩa mà không cần mở file nào khác ngoài repo.
+
+---
+
+# PHẦN 0 — NỀN TẢNG (đọc trước, vì Phần 1 và Phần 2 viện dẫn tới đây)
+
+> Toàn bộ Phần 0 được trích nguyên văn hoặc tóm tắt sát nghĩa từ `CLAUDE.md` — file
+> quy ước làm việc nội bộ hiện bị `.gitignore`. Nếu sau này nhóm quyết định bỏ
+> gitignore file đó thì có thể xoá Phần 0 và trỏ thẳng lại; cho tới lúc đó, đây là
+> bản duy nhất cả nhóm cùng đọc được.
+
+## 0.1 Khung "chứng minh đúng" — 9 tầng
+
+Đây là thang điểm 3đ "chứng minh đúng" của môn học, cụ thể hoá thành checklist. Mọi
+kết luận trong đồ án phải đi qua khung này; các task ở Phần 2 ghi thẳng "tầng mấy"
+theo đúng bảng dưới:
+
+| # | Tầng | Công cụ / việc phải làm |
+|---|---|---|
+| 1 | **Data contract** | Bộ `assert`: kiểu dữ liệu, khoảng giá trị, khoá duy nhất, tỉ lệ null, số dòng |
+| 2 | **Reproducibility** | seed cố định, ghim version thư viện, checksum file raw |
+| 3 | **Leakage audit** | Chia theo thời gian, không KFold ngẫu nhiên; scaler/encoder phải `fit` **bên trong** fold |
+| 4 | **Baseline ladder** | naive → tuyến tính → cây → tuned. Không có baseline thì metric vô nghĩa |
+| 5 | **Significance** | Paired bootstrap / permutation test → khoảng tin cậy 95% cho **chênh lệch** metric |
+| 6 | **Uncertainty & calibration** | Kiểm tra độ phủ thực tế của khoảng dự báo (calibration curve) |
+| 7 | **Error analysis & ablation** | Lỗi tập trung ở phân khúc nào; ΔMetric khi bỏ từng nhóm feature |
+| 8 | **Robustness & sensitivity** | Đổi ngưỡng, đổi cách xử lý dữ liệu → kết luận có đổi không? |
+| 9 | **External sanity check** | Đối chiếu Gap tính được với nhãn `delivery_rating` khách tự báo |
+
+Riêng đề tài này có thêm một luật cắt ngang cả 9 tầng: **mọi ước lượng quần thể phải
+nhân trọng số phân tầng** — mẫu cào được cố tình vét cạn các tầng sao hiếm nên đếm
+thô sẽ không đại diện quần thể; công thức trọng số `w = N_h/n_h` và lý do thiết kế đã
+giải thích ở `README.md` mục "Dữ liệu — tự thu thập". Xem thêm §0.4 cạm bẫy #5 và #9
+về hậu quả khi quên nhân trọng số.
+
+## 0.2 Định nghĩa Gap — phương án C (đã chốt, không được đổi ngầm)
+
+Tiki không công bố ngày giao dự kiến theo từng đơn (khác Olist). Nhóm đã chốt:
+
+> **Bước 1 — Gap suy ra:** `gap_days = lead_time_thực_tế − 5` (SLA công bố site-wide 1–5 ngày).
+> **Bước 2 — Đối chiếu chéo:** so `gap_days > 0` với nhãn khách tự báo `dr_thoi_gian`
+> ∈ {Giao đúng hẹn, Giao trễ hẹn}.
+
+Bảng chéo 2×2 giữa hai đại lượng này (xem `FINDINGS.md` §3) là **trục chính của cả
+đồ án** — hai ô lệch nhau chính là "bẫy SLA" mà đề tài đi tìm. Nếu ai đổi định nghĩa
+Gap, phải cập nhật mục này + `FEASIBILITY.md` §5 và báo cả nhóm, vì mọi con số trong
+`FINDINGS.md` phụ thuộc vào định nghĩa này.
+
+## 0.3 Quy ước kiến trúc code liên quan tới các task ở Phần 2
+
+- **OOP bắt buộc** (theo bài giảng Buổi 1, tính vào 2 điểm code): mọi model kế thừa
+  từ một lớp trừu tượng `BaseModel` chung, cùng interface `fit()` / `predict_proba()`,
+  để so sánh các model công bằng với nhau — đây là yêu cầu của task **C4**. Tương tự,
+  scraper kế thừa từ `BaseScraper` (đã làm xong ở `src/collect/`).
+- **Notebook không chứa logic.** Mọi phép tính nằm trong `src/`, có test đi kèm;
+  notebook chỉ gọi hàm và kể chuyện — ràng buộc tuyệt đối cho Track B.
+- **File 200–400 dòng là vừa, tối đa 800 dòng.** Vượt quá thì tách module.
+- `random_state` cố định, `requirements.txt` ghim version, không hardcode đường dẫn
+  hay tham số (dùng `config.yaml`).
+- Cấu trúc thư mục hiện có: `src/collect/` · `src/clean/` · `src/validate/` ·
+  `src/features/` (rỗng, Track C xây) · `src/models/` (rỗng, Track C xây) ·
+  `src/evaluate/` · `src/viz/` (chưa có, Track B tạo mới) · `notebooks/` · `tests/`.
+  Quyền sở hữu từng thư mục theo track — xem bảng ở §2.1.
+
+## 0.4 Cạm bẫy đã biết — đọc trước khi code
+
+1. **Đừng dùng `curl`** với tiki.vn → bị CDN chặn 403. Dùng `requests.Session()` của Python.
+2. **Đừng cào theo `sort` mặc định** → mẫu ra 96% review 5 sao, biến mục tiêu gần như
+   không có phương sai. Phải lấy mẫu phân tầng theo sao (đã làm xong ở `src/collect/`).
+3. **Đừng `dropna()` cho ~0,88% dòng `lead_days` âm.** Đã điều tra xong nguyên nhân
+   (`FINDINGS.md` §6.2) — giữ nguyên cách gắn cờ và loại khỏi phân tích lead time;
+   `FINDINGS.md` §6.3 là bằng chứng loại chúng ra không làm lệch kết luận quần thể.
+4. **Đừng dùng KFold ngẫu nhiên** trên dữ liệu có trục thời gian → rò rỉ thông tin
+   tương lai vào quá khứ (leakage). Luôn chia theo thời gian (xem quyết định D3, §2.0).
+5. **Đừng báo cáo tỉ lệ thô từ mẫu phân tầng** mà không nhân trọng số → sai hệ thống,
+   đã hai lần dẫn tới kết luận ngược trong dự án này (`FINDINGS.md` §5 và §6.3).
+6. **Không có địa lý khách hàng** (`region` = 0% độ phủ) → không tái tạo được phân
+   tích vùng miền kiểu Olist. Ghi rõ đây là giới hạn, đừng bịa số.
+7. **`delivery_rating` chỉ có ở 7,9% review** (mẻ 203.510 hiện hành) → mọi phân tích
+   dùng nhãn này phải nêu rõ cỡ mẫu và kiểm tra xem nhóm có nhãn có khác nhóm không
+   có nhãn không (đây chính là câu hỏi MNAR ở §0.6 và mục 1.3).
+8. **Tiki trả về hai đồng hồ khác nhau** trong cùng một response: `purchased_at` là
+   epoch UTC, còn các mốc trong `timeline` (`delivery_date`, `review_created_date`) là
+   chuỗi **giờ Việt Nam (UTC+7)**. Trừ thẳng hai loại này vào nhau là lỗi im lặng — nó
+   không làm gãy gì cả, chỉ cộng dư đúng 7 giờ vào mọi lead time. Luôn đi qua hàm
+   `parse_timestamps()` có sẵn, đừng tự parse tay (`FINDINGS.md` §6.1).
+9. **Đừng so hai nhóm con bằng đếm thô.** Mẫu phân tầng theo sao phóng đại tỉ lệ sao
+   thấp trong *mọi* nhóm con, không riêng nhóm mình đang xét — đã hai lần dẫn tới kết
+   luận ngược hẳn chiều (`FINDINGS.md` §5 và §6.3). Luôn nhân trọng số trước, rồi mới so.
+
+## 0.5 Ràng buộc đạo đức liên quan tới task A5
+
+Chi tiết đầy đủ đã có ở `README.md` mục "Đạo đức thu thập dữ liệu" (file đó **có**
+trong git, không cần trích lại toàn bộ ở đây). Riêng phần liên quan trực tiếp tới
+task **A5** (dò thêm trường ở endpoint `product detail`): **tuyệt đối không đụng**
+`/api/v2/me/`, `/v1/private/`, `/api/v2/reviews/writable`, `/order/tracking`,
+`/customer/*` — đây là các endpoint cần tài khoản đăng nhập hoặc trả dữ liệu riêng tư
+người dùng, nằm ngoài phạm vi cào công khai đã cam kết. Endpoint
+`GET tiki.vn/api/v2/products/{pid}` **không** nằm trong danh sách cấm — nó đã được
+dùng để cào chi tiết sản phẩm từ đầu dự án, nên A5 chỉ là đọc thêm trường có sẵn
+trong response, không phải mở endpoint mới.
+
+## 0.6 Kế hoạch chi tiết cho A1–A3 — độ nhạy MNAR (theo quyết định D4, phương án B)
+
+Áp dụng cho task **A1, A2, A3** ở Track A (§2.2). Kế hoạch đã được nhóm thống nhất từ
+trước — người làm không cần thiết kế lại, chỉ cần theo đúng các bước dưới.
+
+**Bước 1 (task A1) — Chặn Manski, không cần giả định, chỉ chạy trong kỷ nguyên 2023+.**
+Dự đoán trước khi chạy: chặn sẽ **rộng đến mức vô dụng**, vì trong kỷ nguyên 2023+ vẫn
+còn khoảng 74% review không có nhãn — đủ để một lập luận đối lập kéo khoảng cách ước
+lượng về chứa cả số 0. Vẫn phải chạy và báo cáo dù kết quả vô dụng: biết một chặn
+không siết được gì cũng là một kết quả, và nó là lý do bắt buộc phải làm tiếp bước 2.
+
+**Bước 2 (task A2) — Quét điểm gãy θ, dùng trọng số phân đoạn.**
+Tham số hoá mức "nhãn còn mang bao nhiêu thông tin" trong nhóm không có nhãn:
+
+```
+p_i(θ) = θ · p_MAR(ô_i) + (1 − θ) · p̄
+```
+
+- `p_MAR(ô)` — tỉ lệ "khách nói trễ hẹn" ước lượng từ **nhóm có nhãn**, tính riêng
+  trên từng ô của bảng chéo `(rating × sla_breach)`.
+- `p̄` — tỉ lệ "trễ hẹn" biên (gộp toàn nhóm có nhãn), dùng làm giá trị trung hoà.
+- `θ = 1` ⇒ giả định MAR (missing at random có điều kiện) — kịch bản lạc quan nhất.
+- `θ = 0` ⇒ nhãn hoàn toàn không mang thông tin gì trong nhóm không nhãn — kịch bản
+  bi quan nhất.
+
+Dùng **trọng số phân đoạn**: mỗi dòng không có nhãn góp `w · p` vào nhóm "trễ hẹn" và
+`w · (1 − p)` vào nhóm "đúng hẹn" khi tính trung bình có trọng số — công thức này cho
+kết quả chính xác trực tiếp, **không cần mô phỏng ngẫu nhiên (simulation)**.
+
+Mục tiêu: tìm **θ\*** — giá trị θ mà tại đó ước lượng chênh lệch (kết luận chính,
+hiện là +0,208 theo `FINDINGS.md` §4) chạm mốc 0. Kết quả cần trình bày ở dạng câu:
+*"kết luận +0,208 chỉ sụp nếu nhãn khách kém thông tin hơn X% trong nhóm không nhãn."*
+
+**Bước 3 (task A3) — 🔒 Tự kiểm bắt buộc, đây là cổng khoá.**
+Chạy đúng hàm quét θ ở bước 2, nhưng lần này trên **riêng nhóm có nhãn**, ép `p` bằng
+đúng giá trị nhãn thật (không suy diễn gì thêm). Kết quả phải **tái lập chính xác**
+con số kết luận chính đang hiện hành — luôn đọc lại `FINDINGS.md` §4 để lấy giá trị
+mới nhất tại thời điểm chạy (**đừng chép hằng số cứng vào code**, vì số này đổi theo
+mẫu; tại mẫu 203.510 hiện là **0,2082**). Không khớp → hàm sai, dừng lại và sửa hàm,
+**chưa được đi tiếp sang A9** cho tới khi qua được cổng này.
+
+**Bước 4 — Bootstrap khoảng tin cậy tại vài giá trị θ: ĐÃ CẮT.**
+Theo quyết định **D4** (§2.0), nhóm chọn phương án B để tiết kiệm chi phí: bootstrap
+theo cụm sản phẩm trên hơn 100.000 dòng từng tốn khoảng 62 USD một phiên và bị hook
+cảnh báo mức CRITICAL. A2 vẫn phải ra được θ\* rõ ràng, chỉ là không có khoảng tin
+cậy bọc quanh nó.
+
+Test bắt buộc cho toàn module (task **A9**), tối thiểu ba ca: (1) ca tái lập đúng số
+ở bước 3, (2) ca trọng số phân đoạn cộng đúng tổng (`w·p + w·(1−p) = w`), (3) ca
+`θ = 1` phải cho kết quả đúng bằng cách tính theo giả định MAR thuần.
 
 ---
 
@@ -48,8 +206,7 @@ ra đời, và chưa ai chạy lại.
 * Con số gộp 7,12% **bị 2021 kéo lên** — trích nó như "tình hình hiện nay" là sai
 
 Nhận xét này bắt đúng vấn đề. Nhưng repo **đã xử lý xong vấn đề này** theo cách
-khác: `CLAUDE.md` §9 cảnh báo #4 và `FINDINGS.md` §2 đã cấm trích số gộp và bắt
-buộc dùng bảng theo năm.
+khác: `FINDINGS.md` §2 đã cấm trích số gộp và bắt buộc dùng bảng theo năm.
 
 ### Sai ở chỗ nào — ba lý do, đã đo
 
@@ -96,13 +253,13 @@ Biến `sla_breach` là biến trung tâm của cả đồ án, và lớp dươn
 
 **Lý do 3 — Xoá dữ liệu cho số đẹp đi ngược nguyên tắc đang là điểm mạnh nhất của repo.**
 
-`CLAUDE.md` §8 cạm bẫy #3 và `README.md` đều ghi: *"Không xoá dòng lỗi trong im
+Cạm bẫy #3 ở §0.4 và `README.md` đều ghi: *"Không xoá dòng lỗi trong im
 lặng — gắn cờ, đếm được, báo cáo được."* Repo đã hai lần được cứu nhờ nguyên tắc
-này (§6.2, §6.3). Cắt 2021 vì "nó xấu" là đúng cái việc đó, chỉ khác quy mô.
+này (`FINDINGS.md` §6.2, §6.3). Cắt 2021 vì "nó xấu" là đúng cái việc đó, chỉ khác quy mô.
 
 ### Nên làm gì thay thế
 
-Biến câu hỏi này thành **tầng 8 của khung chứng minh đúng** (`CLAUDE.md` §7 —
+Biến câu hỏi này thành **tầng 8 của khung chứng minh đúng** (§0.1 —
 Robustness & sensitivity), tức là biến một quyết định cảm tính thành một bằng chứng:
 
 > Chạy lại **đúng kết luận chính** trên 4 lát cắt: **toàn mẫu · bỏ 2021 · 2022+ ·
@@ -130,10 +287,10 @@ không, thì luận điểm sắc hơn hẳn: **SLA không vô dụng — nó ch
 
 ### Đúng ở chỗ nào
 
-Hoàn toàn đúng, và repo đã biết: `CLAUDE.md` §4 (phương án C), `FEASIBILITY.md` §5,
+Hoàn toàn đúng, và repo đã biết: §0.2 (phương án C), `FEASIBILITY.md` §5,
 `FINDINGS.md` §7 đều khai báo rõ "lời hứa là SLA site-wide 1–5 ngày, không phải cam
 kết theo từng đơn". Kết luận "cần tài khoản order/seller → không khả thi" cũng đúng
-với ràng buộc đạo đức ở `CLAUDE.md` §6 (cấm đụng `/api/v2/me/`, `/order/tracking`).
+với ràng buộc đạo đức ở §0.5 / `README.md` (cấm đụng `/api/v2/me/`, `/order/tracking`).
 
 ### Thiếu ở chỗ nào
 
@@ -157,7 +314,7 @@ in ra một bảng. Kết quả sẽ có dạng:
 > *"Kết luận không đổi dấu ở bất kỳ ngưỡng SLA nào từ 3 đến 7 ngày."*
 
 Đó là câu chặn đứng câu hỏi hiển nhiên nhất mà hội đồng sẽ hỏi. Rẻ, và là tầng 8
-của khung chứng minh. Task **A6**.
+của khung chứng minh (§0.1). Task **A6**.
 
 **Thứ ba — còn đúng một phép dò chưa làm.** Trước khi đóng vĩnh viễn câu hỏi này,
 bỏ 1 giờ dò endpoint `product detail` xem có trường `delivery_estimate` /
@@ -181,7 +338,7 @@ nhất còn lại" (`FINDINGS.md` §8 mục 2). Không có gì phải sửa về
 
 ### Thiếu ở chỗ nào — và đây là chỗ dễ mất công vô ích nhất
 
-File kế hoạch nói "MNAR" như **một** cơ chế. `CLAUDE.md` §9.1 đã đo ra **hai**:
+File kế hoạch nói "MNAR" như **một** cơ chế. Đo trực tiếp trên dữ liệu ra **hai**:
 
 | Cơ chế | Quy mô | Chặn được? |
 |---|---|---|
@@ -196,9 +353,9 @@ có cơ hội mang nhãn.
 **Chặn phải chạy trong kỷ nguyên 2023+, không phải toàn mẫu.**
 
 Kế hoạch chi tiết 4 bước (Manski → quét θ → bootstrap → test) đã viết sẵn ở
-`CLAUDE.md` §9.1, kèm một phép **tự kiểm bắt buộc**: hàm quét θ chạy trên riêng
+**§0.6**, kèm một phép **tự kiểm bắt buộc**: hàm quét θ chạy trên riêng
 nhóm có nhãn phải tái lập đúng **0,2082**; không khớp thì hàm sai. Đừng viết lại
-kế hoạch — cứ theo nó. Task **A1–A4**.
+kế hoạch — cứ theo nó. Task **A1–A3** (bước 4/A4 đã bị cắt, xem §0.6).
 
 ---
 
@@ -208,15 +365,15 @@ kế hoạch — cứ theo nó. Task **A1–A4**.
 
 * Chia 4 nhóm theo chủ đề, mỗi hình có một câu "mục tiêu" — đúng nguyên tắc
   *"mỗi slide một câu kết luận, biểu đồ là bằng chứng"*.
-* Ưu tiên hình sớm là quyết định đúng — khớp với ghi chú của Hiển trong `CLAUDE.md`
-  §9 rằng giảng viên thích trình bày bằng notebook.
+* Ưu tiên hình sớm là quyết định đúng — khớp với quyết định **D11** (giảng viên
+  thích trình bày bằng notebook, xem §2.0).
 * Đánh dấu Biểu đồ 8 (bảng chéo) là quan trọng nhất — đúng, đó là trục của đồ án.
 
 ### Sai ở chỗ nào — lỗi nặng nhất
 
 **Cả 8 biểu đồ đều là biểu đồ đếm thô, và mẫu này là mẫu phân tầng theo sao.**
 
-`CLAUDE.md` §8 cạm bẫy #5 và #9 ghi thẳng: *"Đừng báo cáo tỉ lệ thô từ mẫu phân
+Cạm bẫy #5 và #9 ở §0.4 ghi thẳng: *"Đừng báo cáo tỉ lệ thô từ mẫu phân
 tầng"* và *"Đếm thô từ mẫu phân tầng đã hai lần dẫn tới kết luận ngược."*
 
 Cụ thể với Biểu đồ 6 (phân phối rating): vẽ thô sẽ ra **8,6% review ≤3★**, trong
@@ -340,12 +497,12 @@ rồi đem so:
 | M1c | nhãn khách `customer_says_late` | Thứ khách thật sự cảm nhận |
 
 So sức dự đoán 3 mô hình này bằng **paired bootstrap theo cụm sản phẩm** chính là
-kết luận §4 phát biểu lại dưới dạng dự đoán — và lần này có thể đo bằng PR-AUC thay
+kết luận `FINDINGS.md` §4 phát biểu lại dưới dạng dự đoán — và lần này có thể đo bằng PR-AUC thay
 vì chênh lệch rating. Nếu M1a gần như không thắng baseline trong khi M1b và M1c
 thắng rõ → **"tỉ lệ đạt SLA vứt mất thông tin"** được chứng minh hai lần bằng hai
 phương pháp độc lập.
 
-Đó là ablation ở tầng 7 của khung chứng minh, và nó là phần đáng giá nhất của
+Đó là ablation ở tầng 7 của khung chứng minh (§0.1), và nó là phần đáng giá nhất của
 Modeling. Task **C9**.
 
 ### Bỏ sót: các biến đã có sẵn trong dữ liệu mà không ai dùng
@@ -361,7 +518,7 @@ Danh sách feature trong file chỉ có 8 biến. Bảng đã sạch còn sẵn:
 ### Ba cảnh báo kỹ thuật
 
 1. **`seller_id` 366 mức không đưa thô vào model.** Target-encoding phải `fit`
-   **bên trong** fold, nếu không là leakage (`CLAUDE.md` §7 tầng 3).
+   **bên trong** fold, nếu không là leakage (tầng 3 ở §0.1).
 2. **Chưa ai quyết định có train có trọng số hay không.** Phải chốt và ghi lý do:
    train không trọng số (học tốt hơn trên lớp hiếm) nhưng **đánh giá phải có trọng
    số** (ước lượng quần thể). Task **C2**.
@@ -374,8 +531,8 @@ Danh sách feature trong file chỉ có 8 biến. Bảng đã sạch còn sẵn:
 
 ### Thiếu bậc thang
 
-`CLAUDE.md` §7 tầng 4 đòi **naive → tuyến tính → cây → tuned**. File kế hoạch mới có
-Model 0 (baseline) và Model 1 (Logistic). Thiếu cây/GBM và thiếu bản tuned.
+Tầng 4 của khung chứng minh đúng (§0.1) đòi **naive → tuyến tính → cây → tuned**.
+File kế hoạch mới có Model 0 (baseline) và Model 1 (Logistic). Thiếu cây/GBM và thiếu bản tuned.
 
 ### Vấn đề chưa ai nêu: lớp dương chỉ ~4%
 
@@ -385,12 +542,12 @@ Model 0 (baseline) và Model 1 (Logistic). Thiếu cây/GBM và thiếu bản tu
   Baseline Model 0 phải là đúng cái này, và phải nói thẳng nó được 96%.
 * Metric phải là **PR-AUC** và **Brier score**, không phải accuracy, cũng không nên
   chỉ ROC-AUC (ROC đẹp giả trên dữ liệu lệch).
-* Cần **calibration curve** — tầng 6 của khung chứng minh, và gần như không nhóm nào làm.
+* Cần **calibration curve** — tầng 6 của khung chứng minh (§0.1), và gần như không nhóm nào làm.
 
 ### Thiếu toàn bộ tầng đánh giá
 
-Không thấy nhắc: chia theo thời gian (cạm bẫy #4), paired bootstrap cho **chênh
-lệch** metric (tầng 5), calibration (tầng 6), error analysis + ablation (tầng 7).
+Không thấy nhắc: chia theo thời gian (cạm bẫy #4, §0.4), paired bootstrap cho **chênh
+lệch** metric (tầng 5, §0.1), calibration (tầng 6, §0.1), error analysis + ablation (tầng 7, §0.1).
 Đây đúng là 3 điểm của đề bài — đừng để Modeling dừng ở `model.fit()` rồi in metric.
 
 ---
@@ -516,7 +673,7 @@ test: thêm ca tái lập 0.2082 cho mnar
 ## 2.2 TRACK A — Chứng minh & Độ tin cậy · ~44h
 
 **Mục tiêu:** khoá lại 3 điểm "chứng minh đúng". Khó nhất về tư duy, nhẹ nhất về số dòng code.
-**Đã có sẵn:** `src/evaluate/stats.py`, `mnar_sensitivity.py` (xong phần mô tả), kế hoạch chi tiết `CLAUDE.md` §9.1.
+**Đã có sẵn:** `src/evaluate/stats.py`, `mnar_sensitivity.py` (xong phần mô tả), kế hoạch chi tiết ở **§0.6**.
 
 | ID | Việc | Đầu ra | Giờ |
 |---|---|---|---|
@@ -526,7 +683,7 @@ test: thêm ca tái lập 0.2082 cho mnar
 | **A6** | **Quét ngưỡng SLA** ở `sla_days ∈ {3,4,5,6,7}` (dùng tham số sẵn có của `compute_gap`) | `src/evaluate/sensitivity.py` + bảng | 4 |
 | **A5** | Dò endpoint `product detail` tìm `delivery_estimate`/`handling_time` cấp sản phẩm. **Chốt cứng 1 giờ.** Có → báo nhóm. Không → ghi bằng chứng vào `FEASIBILITY.md`, đóng câu hỏi | mục mới FEASIBILITY | 1 |
 | **A1** | Chặn Manski **chỉ trong kỷ nguyên 2023+**. Dự đoán trước: chặn sẽ rộng. Báo cáo kể cả khi vô dụng | FINDINGS §9 | 4 |
-| **A2** | Quét điểm gãy θ theo `CLAUDE.md` §9.1 mục 2, dùng **trọng số phân đoạn** | `theta_scan()` | 6 |
+| **A2** | Quét điểm gãy θ theo **§0.6 bước 2**, dùng **trọng số phân đoạn** | `theta_scan()` | 6 |
 | **A3** | 🔒 **Tự kiểm bắt buộc**: `theta_scan` trên riêng nhóm có nhãn với `p` cứng phải ra **đúng 0,2082**. Không khớp → hàm sai, dừng sửa | test đỏ→xanh | 1 |
 | ~~A4~~ | ~~Bootstrap KTC tại 4 giá trị θ~~ | **CẮT — D4 chọn phương án B** | ~~3~~ |
 | **A8** | Viết lại `FINDINGS.md` §7 theo phát hiện hai cơ chế. Câu "nhóm có nhãn giao nhanh hơn" đang phóng đại 4,0× trong khi cùng kỷ nguyên chỉ 1,3× | §7 viết lại | 2 |
@@ -600,7 +757,7 @@ test: thêm ca tái lập 0.2082 cho mnar
 
 ## 2.4 TRACK C — Feature & Modeling · ~59h
 
-**Mục tiêu:** biến kết luận §4 từ phép so sánh trung bình thành phép so sánh **sức dự đoán**.
+**Mục tiêu:** biến kết luận `FINDINGS.md` §4 từ phép so sánh trung bình thành phép so sánh **sức dự đoán**.
 **Bị chặn bởi A7** (tuần 1). Trong lúc chờ: làm C3 → C2 → C1 → C4.
 **Nền tảng:** `src/features/` và `src/models/` hiện **rỗng hoàn toàn** — xây từ đầu.
 
@@ -609,15 +766,15 @@ test: thêm ca tái lập 0.2082 cho mnar
 | ID | Việc | Giờ |
 |---|---|---|
 | **C3** | 🔒 **Danh sách biến cấm (leakage).** `gap_days = lead_days − 5` → tương quan **đúng 1,0**; `sla_breach` là bản nhị phân của cùng biến. Ghi rõ biến nào không được đứng chung mô hình nào | 2 |
-| **C2** | Ghi lại **D9 đã chốt** vào `CLAUDE.md`: **train KHÔNG trọng số** (học tốt hơn lớp hiếm) · **đánh giá CÓ trọng số** (ước lượng quần thể) + lý do | 2 |
+| **C2** | Ghi lại **D9 đã chốt** vào `FINDINGS.md` §11 (mục Track C sở hữu, xem §2.1) + docstring trong `src/features/build.py`: **train KHÔNG trọng số** (học tốt hơn lớp hiếm) · **đánh giá CÓ trọng số** (ước lượng quần thể) + lý do. **Không ghi vào `CLAUDE.md`** — file đó bị gitignore, quyết định phải nằm ở nơi cả nhóm đọc được | 2 |
 | **C1** | `src/features/build.py`. Target = **`is_low_rating`** (D2). Gồm cả biến đang bị bỏ quên: `review_lag_days`, `dr_shipper`, `dr_dong_goi`, `n_images`, `thank_count`, `customer_purchased_flag`, **`la_tiki_trading`** | 6 |
 
 ### C4–C8 · bậc thang mô hình
 
 | ID | Việc | Giờ |
 |---|---|---|
-| **C4** | `src/models/base.py` — `BaseModel` trừu tượng, interface `fit`/`predict_proba` chung. **Yêu cầu OOP `CLAUDE.md` §5, tính vào 2 điểm code** | 4 |
-| **C5** | **Chia theo D3: train ≤2023 · test 2024–2026** (test 39.881 dòng, 1.078 ca dương). Không bao giờ KFold ngẫu nhiên (cạm bẫy #4). Encoder/scaler `fit` **bên trong** fold | 4 |
+| **C4** | `src/models/base.py` — `BaseModel` trừu tượng, interface `fit`/`predict_proba` chung. **Yêu cầu OOP theo §0.3, tính vào 2 điểm code** | 4 |
+| **C5** | **Chia theo D3: train ≤2023 · test 2024–2026** (test 39.881 dòng, 1.078 ca dương). Không bao giờ KFold ngẫu nhiên (cạm bẫy #4, §0.4). Encoder/scaler `fit` **bên trong** fold | 4 |
 | **C6** | **M0 — baseline đa số.** Luôn đoán "không phải low rating". **Sẽ được ~96%** — đó chính là lý do accuracy vô dụng, và phải nói thẳng ra | 2 |
 | **C7** | **M1a / M1b / M1c** — ba Logistic riêng: chỉ `sla_breach` · chỉ `lead_days` · chỉ nhãn khách. **Không gộp** (xem C3) | 5 |
 | **C8** | 🔻 **M2 cây/GBM** đầy đủ feature + **M3 tuned**. Hoàn tất bậc thang naive→tuyến tính→cây→tuned | 6 |
@@ -626,7 +783,7 @@ test: thêm ca tái lập 0.2082 cho mnar
 
 | ID | Việc | Giờ |
 |---|---|---|
-| **C9** | ⭐⭐ **Ablation trung tâm** — so sức dự đoán M1a vs M1b vs M1c. Nếu "cách doanh nghiệp đang đo" (M1a) gần như không thắng baseline trong khi hai cái kia thắng rõ → **kết luận §4 được chứng minh lần hai bằng phương pháp độc lập** | 6 |
+| **C9** | ⭐⭐ **Ablation trung tâm** — so sức dự đoán M1a vs M1b vs M1c. Nếu "cách doanh nghiệp đang đo" (M1a) gần như không thắng baseline trong khi hai cái kia thắng rõ → **kết luận `FINDINGS.md` §4 được chứng minh lần hai bằng phương pháp độc lập** | 6 |
 | ~~C10~~ | ~~Paired bootstrap cho chênh lệch metric~~ | ➡️ **chuyển sang Track A** (dùng `stats.py`, vùng của A) |
 | **C11** | **Metric đúng cho dữ liệu lệch 3,88%**: PR-AUC + Brier. Không accuracy. ROC-AUC chỉ ghi kèm | 3 |
 | **C12** | 🔻 **Calibration curve** + độ phủ thực tế. Tầng 6 khung chứng minh — gần như không nhóm nào làm | 4 |
