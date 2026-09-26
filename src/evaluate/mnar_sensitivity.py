@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-
+from src.evaluate.stats import effective_sample_size
 import numpy as np
 import pandas as pd
 
@@ -83,7 +83,73 @@ def selection_decomposition(d: pd.DataFrame) -> dict[str, dict]:
         "trước_kỷ_nguyên": profile(d[d["nam"] < LABEL_ERA_START]),
     }
 
+def manski_bounds(d: pd.DataFrame) -> dict[str, float]:
+    """
+    Manski bounds cho tỷ lệ customer_says_late trong kỷ nguyên 2023+.
 
+    Chỉ sử dụng các dòng is_analysable thuộc kỷ nguyên nhãn tồn tại.
+
+    Lower bound:
+        toàn bộ review không nhãn được giả định là không trễ.
+
+    Upper bound:
+        toàn bộ review không nhãn được giả định là trễ.
+
+    Mọi ước lượng đều dùng trọng số phân tầng.
+    """
+    era = d[
+        (d["nam"] >= LABEL_ERA_START)
+        & d["is_analysable"]
+    ].copy()
+
+    labelled = era[era["labelled"]].copy()
+    unlabelled = era[~era["labelled"]].copy()
+
+    w_labelled = labelled["weight"].to_numpy(float)
+    w_unlabelled = unlabelled["weight"].to_numpy(float)
+
+    y = labelled["customer_says_late"].astype(bool).to_numpy()
+
+    total_weight = (
+        w_labelled.sum()
+        + w_unlabelled.sum()
+    )
+
+    late_weight = w_labelled[y].sum()
+
+    # Cực dưới:
+    # toàn bộ phần thiếu nhãn = không trễ.
+    lower = (
+        late_weight
+        / total_weight
+        * 100
+    )
+
+    # Cực trên:
+    # toàn bộ phần thiếu nhãn = trễ.
+    upper = (
+        (late_weight + w_unlabelled.sum())
+        / total_weight
+        * 100
+    )
+
+    n_eff = effective_sample_size(
+        era["weight"].to_numpy(float)
+    )
+
+    return {
+        "n_era": len(era),
+        "n_labelled": len(labelled),
+        "n_unlabelled": len(unlabelled),
+        "weighted_labelled_pct": (
+            w_labelled.sum()
+            / total_weight
+            * 100
+        ),
+        "lower_pct": lower,
+        "upper_pct": upper,
+        "n_eff": n_eff,
+    }
 def main() -> None:
     ap = argparse.ArgumentParser(description="Độ nhạy MNAR (đang làm dở)")
     ap.add_argument("--data", type=Path, default=Path("data/processed/reviews_clean.parquet"))
@@ -120,8 +186,65 @@ def main() -> None:
     print(f"\n  Chênh rating: gộp {g_l['rating']-g_u['rating']:+.3f} → "
           f"trong kỷ nguyên {e_l['rating']-e_u['rating']:+.3f}")
 
-    print("\n\n## C. Chặn Manski + điểm gãy θ — CHƯA LÀM")
-    print("  Xem CLAUDE.md §9.1 (ba phương án A/B/C đã cân nhắc).")
+    print("\n\n## C. Chặn Manski — A1\n")
+    bounds = manski_bounds(d)
+
+    print(
+        f"  Kỷ nguyên: {LABEL_ERA_START}+"
+    )
+
+    print(
+        f"  n phân tích được: "
+        f"{bounds['n_era']:,}"
+    )
+
+    print(
+        f"  n có nhãn: "
+        f"{bounds['n_labelled']:,}"
+    )
+
+    print(
+        f"  n không nhãn: "
+        f"{bounds['n_unlabelled']:,}"
+    )
+
+    print(
+        f"  Tỷ trọng có nhãn: "
+        f"{bounds['weighted_labelled_pct']:.2f}%"
+    )
+
+    print()
+
+    print(
+        "  Manski lower bound: "
+        f"{bounds['lower_pct']:.2f}%"
+    )
+
+    print(
+        "  Manski upper bound: "
+        f"{bounds['upper_pct']:.2f}%"
+    )
+
+    print(
+        f"  n_eff: "
+        f"{bounds['n_eff']:.2f}"
+    )
+
+    print()
+
+    print(
+        "  Diễn giải:"
+    )
+
+    print(
+        "    Lower = mọi review không nhãn "
+        "đều được giả định là không trễ."
+    )
+
+    print(
+        "    Upper = mọi review không nhãn "
+        "đều được giả định là trễ."
+    )
 
 
 if __name__ == "__main__":

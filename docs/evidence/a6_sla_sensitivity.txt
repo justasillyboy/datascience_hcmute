@@ -1,0 +1,58 @@
+======================================================================
+A6 - SLA THRESHOLD SENSITIVITY
+======================================================================
+Đọc dữ liệu: data\processed\reviews_clean.parquet
+Số dòng dữ liệu: 203,510
+SLA mặc định: 5.0 ngày
+
+--- SLA = 3 ngày ---
+  SLA breach:         19.5217%
+  Customer says late: 1.8746%
+  Rating gap:         0.2372
+  n:                  198,355
+  n_labelled:         15,816
+  n_eff:              53972.89
+
+--- SLA = 4 ngày ---
+  SLA breach:         11.7129%
+  Customer says late: 1.8746%
+  Rating gap:         0.2001
+  n:                  198,355
+  n_labelled:         15,816
+  n_eff:              53972.89
+
+--- SLA = 5 ngày ---
+  SLA breach:         7.1205%
+  Customer says late: 1.8746%
+  Rating gap:         0.2082
+  n:                  198,355
+  n_labelled:         15,816
+  n_eff:              53972.89
+
+--- SLA = 6 ngày ---
+  SLA breach:         4.8453%
+  Customer says late: 1.8746%
+  Rating gap:         0.1804
+  n:                  198,355
+  n_labelled:         15,816
+  n_eff:              53972.89
+
+--- SLA = 7 ngày ---
+  SLA breach:         3.7419%
+  Customer says late: 1.8746%
+  Rating gap:         0.1558
+  n:                  198,355
+  n_labelled:         15,816
+  n_eff:              53972.89
+
+======================================================================
+KẾT QUẢ A6
+======================================================================
+ sla_days  sla_breach_pct  customer_says_late_pct  rating_gap      n  n_labelled      n_eff
+        3         19.5217                  1.8746      0.2372 198355       15816 53972.8888
+        4         11.7129                  1.8746      0.2001 198355       15816 53972.8888
+        5          7.1205                  1.8746      0.2082 198355       15816 53972.8888
+        6          4.8453                  1.8746      0.1804 198355       15816 53972.8888
+        7          3.7419                  1.8746      0.1558 198355       15816 53972.8888
+
+Đã lưu evidence: docs\evidence\a6_sla_sensitivity.txt

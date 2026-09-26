@@ -1,0 +1,123 @@
+======================================================================
+A5 - TIKI PRODUCT DELIVERY ENDPOINT CHECK
+======================================================================
+
+Endpoint:
+https://tiki.vn/api/v2/products/widget/delivery_info/{product_id}
+
+Product IDs được lấy trực tiếp từ reviews_clean.parquet:
+  - 278630241
+  - 278628866
+  - 278628812
+  - 277619147
+  - 201067649
+
+======================================================================
+PRODUCT ID: 278630241
+URL: https://tiki.vn/api/v2/products/widget/delivery_info/278630241
+======================================================================
+HTTP status: 404
+Content-Type: application/json; charset=utf-8
+
+RAW JSON RESPONSE:
+{
+  "status": 404,
+  "error": {
+    "message": "just accept seller product"
+  }
+}
+
+----------------------------------------------------------------------
+FIELD CHECK
+----------------------------------------------------------------------
+Không tìm thấy các field mục tiêu:
+delivery_estimate, delivery_estimate_time, delivery_options, handling_time, time_estimation
+
+======================================================================
+PRODUCT ID: 278628866
+URL: https://tiki.vn/api/v2/products/widget/delivery_info/278628866
+======================================================================
+HTTP status: 404
+Content-Type: application/json; charset=utf-8
+
+RAW JSON RESPONSE:
+{
+  "status": 404,
+  "error": {
+    "message": "just accept seller product"
+  }
+}
+
+----------------------------------------------------------------------
+FIELD CHECK
+----------------------------------------------------------------------
+Không tìm thấy các field mục tiêu:
+delivery_estimate, delivery_estimate_time, delivery_options, handling_time, time_estimation
+
+======================================================================
+PRODUCT ID: 278628812
+URL: https://tiki.vn/api/v2/products/widget/delivery_info/278628812
+======================================================================
+HTTP status: 404
+Content-Type: application/json; charset=utf-8
+
+RAW JSON RESPONSE:
+{
+  "status": 404,
+  "error": {
+    "message": "just accept seller product"
+  }
+}
+
+----------------------------------------------------------------------
+FIELD CHECK
+----------------------------------------------------------------------
+Không tìm thấy các field mục tiêu:
+delivery_estimate, delivery_estimate_time, delivery_options, handling_time, time_estimation
+
+======================================================================
+PRODUCT ID: 277619147
+URL: https://tiki.vn/api/v2/products/widget/delivery_info/277619147
+======================================================================
+HTTP status: 404
+Content-Type: application/json; charset=utf-8
+
+RAW JSON RESPONSE:
+{
+  "status": 404,
+  "error": {
+    "message": "just accept seller product"
+  }
+}
+
+----------------------------------------------------------------------
+FIELD CHECK
+----------------------------------------------------------------------
+Không tìm thấy các field mục tiêu:
+delivery_estimate, delivery_estimate_time, delivery_options, handling_time, time_estimation
+
+======================================================================
+PRODUCT ID: 201067649
+URL: https://tiki.vn/api/v2/products/widget/delivery_info/201067649
+======================================================================
+HTTP status: 404
+Content-Type: application/json; charset=utf-8
+
+RAW JSON RESPONSE:
+{
+  "status": 404,
+  "error": {
+    "message": "just accept seller product"
+  }
+}
+
+----------------------------------------------------------------------
+FIELD CHECK
+----------------------------------------------------------------------
+Không tìm thấy các field mục tiêu:
+delivery_estimate, delivery_estimate_time, delivery_options, handling_time, time_estimation
+
+======================================================================
+KẾT THÚC A5
+======================================================================
+Evidence: docs\evidence\a5_product_delivery_endpoint.txt
