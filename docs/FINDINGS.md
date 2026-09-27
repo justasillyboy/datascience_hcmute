@@ -454,3 +454,95 @@ vùng miền của Olist.
 4. **Phân rã theo ngành hàng và nhà bán** — bẫy SLA có đồng đều không?
 5. **Modeling** — dự đoán `is_low_rating`, thang baseline, ablation trên nhóm biến giao hàng.
 6. **Đối chiếu Olist** làm tham chiếu quốc tế (chỉ so sánh, không phải nguồn phân tích).
+
+## 11. Modeling — Track C
+
+> Mọi con số dưới đây sinh ra bằng **một lệnh**: `python3 -m src.models.run_modeling`
+> → log [`evidence/c_modeling_2026-09-27.txt`](evidence/c_modeling_2026-09-27.txt).
+> Kể chuyện đầy đủ + lý thuyết: `notebooks/03_modeling.ipynb` (chạy trên Kaggle — gói
+> `python3 -m src.models.make_kaggle_bundle`). Code: `src/features/`, `src/models/` · test:
+> `tests/test_features.py`, `tests/test_models.py`.
+
+**Bài toán.** Dự báo `is_low_rating` (≤3★, D2) **tại thời điểm giao hàng**. Train ≤2023
+(157.173 dòng) · test 2024–2026 (41.182 dòng, 1.465 ca dương, tỉ lệ quần thể 1,68%) — D3,
+chia theo năm đăng review. Mọi lựa chọn (trọng số, họ mô hình, siêu tham số) quyết định bằng
+CV theo thời gian trong tập train (val 2022, val 2023); test chấm một lần. Mọi metric có
+trọng số khảo sát; mọi kết luận kiểm lại trên tập **2.066 sản phẩm vét cạn** (không lấy mẫu).
+
+### 11.1 D9 "train không trọng số" không đứng vững — cần nhóm cập nhật
+
+Lập luận case-control (Prentice & Pyke, 1979) cần xác suất vào mẫu chỉ phụ thuộc nhãn. Ở đây
+xác suất cào một review 5★ là `n_h/N_h` — **phụ thuộc sản phẩm**. Hệ quả đo trên tập train:
+**3/16 feature đảo chiều** giữa mẫu thô và quần thể (vd `prod_hist_n`: AUC 0,554 → 0,376), và
+train không trọng số thua ở **cả ba** họ mô hình trên CV:
+
+| PR-AUC CV (có trọng số) | none (D9) | survey | survey_balanced |
+|---|---|---|---|
+| Logistic | 0,0352 | 0,0548 | 0,0553 |
+| Random forest | 0,0284 | 0,0511 | 0,0479 |
+| Gradient boosting | 0,0293 | 0,0502 | 0,0552 |
+
+→ Track C train bằng **trọng số khảo sát + cân bằng lớp**, rồi **hiệu chỉnh xác suất** trên năm
+2023 (Platt có trọng số). Phần "đánh giá có trọng số" của D9 giữ nguyên.
+
+### 11.2 Phát hiện phụ cho cả nhóm: tầng 5★ lệch về review gần đây
+
+Ở 344 sản phẩm bị giới hạn tầng 5★ có đủ dữ liệu so sánh (trên 371), review 5★ cào được mới hơn
+review 1–3★ (vét cạn) trung vị **272,5 ngày**, ở **95,9%** sản phẩm (`five_star_recency()` trong
+`src/models/diagnostics.py`) — API không trả review ngẫu nhiên trong tầng. Trọng số `N_h/n_h` đúng cho ước lượng *toàn thời gian* (§1: `Σw` khớp tới 0,009%), nhưng
+**lệch khi cắt theo năm** (năm cũ thiếu 5★ → tỉ lệ review xấu/vượt SLA của năm cũ bị phồng).
+Không sửa triệt để được; Track C chặn bằng tập sản phẩm vét cạn (`is_census`). **Mọi bảng theo
+năm (§2) nên được kiểm lại trên tập này.**
+
+### 11.3 Kết quả trên test 2024–2026
+
+| Mô hình | PR-AUC | lift (toàn bộ, có trọng số) | lift (sản phẩm vét cạn) |
+|---|---|---|---|
+| M0 tỉ lệ chung | 0,0168 | 1,00 | 1,00 |
+| M1a chỉ `sla_breach` | 0,0179 | 1,06 | 1,04 |
+| M1b chỉ `lead_days` | 0,0244 | 1,45 | 1,30 |
+| M2 logistic tuned | 0,0641 | 3,82 | 2,31 |
+| M5 GBM tuned | 0,0548 | 3,27 | 2,00 |
+| **M7 ensemble GBM + logistic, hiệu chỉnh (CHỐT)** | **0,0632** | **3,76** | **2,22** |
+
+M7: xác suất trung bình 0,0163 vs tỉ lệ thật 0,0168 · ECE 0,003 · Brier skill +0,022 (mô hình
+duy nhất có skill dương) · gọi 5% đơn rủi ro nhất bắt **23,3%** review xấu (precision 7,8%,
+4,7× ngẫu nhiên). Bootstrap ghép cặp theo cụm: M7 − M2 = −0,0010 [−0,0043; 0,0026] (ngang
+logistic) · M7 − M5 = +0,0083 [0,0052; 0,0128] · M5 − M4 = −0,0034 [−0,0078; 0,0002]
+(**tune cải thiện CV nhưng không cải thiện test**). Ghi chú minh bạch: ensemble được đưa vào
+tập ứng viên sau lần chạy thử trên test → điểm test của M7 hơi lạc quan.
+
+### 11.4 C9 — chứng minh lại §4 bằng sức dự đoán (test có nhãn khách, n = 11.287)
+
+| Chỉ báo (một biến) | lift PR-AUC | Brier skill |
+|---|---|---|
+| M1a `sla_breach` — cách doanh nghiệp đo | 1,09 | −0,026 |
+| M1b `lead_days` | 1,51 | −0,022 |
+| M1c khách nói trễ | 1,51 | +0,008 |
+| M1d `lead_days` + khách nói trễ | 2,52 | +0,008 |
+
+ΔPR-AUC: M1b − M1a = +0,0080 [0,0052; 0,0127] · M1c − M1a = +0,0081 [0,0034; 0,0151] ·
+M1d − M1b = +0,0195 [0,0109; 0,0342]. **Chỉ báo SLA gần như không mang thông tin về sự bất mãn;
+thông tin bị mất ở bước nhị phân hoá; lời khách chứa thông tin mà đồng hồ giao hàng không có** —
+cùng kết luận với §4, bằng phương pháp độc lập.
+
+### 11.5 Nhóm feature và phân tích lỗi
+
+* Ablation (ensemble, train lại): bỏ **lịch sử khách** −0,0071 / −0,0134 (có trọng số / vét cạn),
+  bỏ **lịch sử sản phẩm** −0,0103 / −0,0030, bỏ **giao hàng** −0,0013 / −0,0017. *Ai mua và mua gì*
+  dự báo review xấu tốt hơn nhiều so với *giao nhanh hay chậm*.
+* Liều–đáp ứng (logistic spline, trọng số khảo sát): ở 2024–2026, rủi ro tương đối so với giao
+  trong 1 ngày là **1,98× ở 3 ngày**, 2,10× ở 5 ngày, 2,23× ở 7 ngày → **phần lớn tác hại xảy ra
+  bên trong ngưỡng SLA**. 2021 có rủi ro tuyệt đối cao nhất nhưng đường cong thoải nhất (10 ngày:
+  1,77× so với 3,11× ở 2022–2023) — *giả thuyết* điều chỉnh kỳ vọng khi giãn cách; mức tuyệt đối
+  giữa các năm chịu ảnh hưởng của §11.2.
+
+### 11.6 C14 — Tiki Trading vs bên thứ ba: không đủ bằng chứng
+
+| | Tiki Trading (n = 11.573) | Bên thứ ba (n = 4.243) |
+|---|---|---|
+| Báo động giả P(khách đúng hẹn \| vượt SLA) | 82,1% (`n_eff` 79 ⚠️) | 88,8% (`n_eff` 101) |
+| Bỏ sót P(trong SLA \| khách nói trễ) | 84,8% (`n_eff` 68 ⚠️) | 73,2% (`n_eff` 70 ⚠️) |
+
+Δ báo động giả = −0,068 [−0,176; 0,023] · Δ bỏ sót = +0,116 [−0,021; 0,242] — **cả hai KTC chứa 0**.
+Không trích như một phát hiện.
