@@ -11,7 +11,7 @@ venv/
 .env
 .DS_Store
 .pytest_cache/
-reports/figures/*.png
+#reports/figures/*.png
 logs_*.txt
 CLAUDE.md
 
