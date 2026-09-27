@@ -1,0 +1,195 @@
+
+==============================================================================
+1 · Dữ liệu mô hình
+==============================================================================
+train ≤2023      n=157,173  dương=15,132  tỉ lệ thô=0.0963  tỉ lệ quần thể=0.0445  sản phẩm vét cạn=61,649 dòng
+test 2024–2026   n=41,182  dương=1,465  tỉ lệ thô=0.0356  tỉ lệ quần thể=0.0168  sản phẩm vét cạn=24,626 dòng
+          train   val  n_train  n_val  dương_train  dương_val
+fold                                                         
+1     2014–2021  2022    75753  54829        10314       3614
+2     2014–2022  2023   130582  26591        13928       1204
+
+==============================================================================
+2 · Kiểm D9: AUC một biến, mẫu thô vs quần thể (chỉ tập train)
+==============================================================================
+                   auc_mau_tho  auc_quan_the  đảo_chiều
+lead_days               0.5892        0.6036      False
+delivered_hour          0.5276        0.5294      False
+delivered_weekend       0.4940        0.4933      False
+purchase_month          0.5180        0.5216      False
+purchase_weekday        0.5030        0.5052      False
+purchase_hour           0.5104        0.5077      False
+is_tiki_trading         0.5266        0.4499       True
+log_price               0.5233        0.5415      False
+discount_rate           0.5594        0.4730       True
+prod_hist_n             0.5540        0.3762       True
+prod_hist_rate          0.6434        0.6569      False
+seller_hist_n           0.4527        0.3420      False
+seller_hist_rate        0.6501        0.6792      False
+cust_tenure_days        0.4518        0.4648      False
+cust_hist_n             0.4508        0.4484      False
+cust_hist_rate          0.5569        0.5601      False
+Số feature đảo chiều: 3/16
+
+==============================================================================
+3 · Chọn họ mô hình × phương án trọng số (CV theo thời gian, PR-AUC có trọng số)
+==============================================================================
+          họ mô hình   trọng số train  val_2022  val_2023   mean
+0      Logistic (L2)             none    0.0474    0.0230 0.0352
+1      Logistic (L2)           survey    0.0602    0.0494 0.0548
+2      Logistic (L2)  survey_balanced    0.0609    0.0496 0.0553
+3      Random forest             none    0.0333    0.0234 0.0284
+4      Random forest           survey    0.0591    0.0430 0.0511
+5      Random forest  survey_balanced    0.0574    0.0384 0.0479
+6  Gradient boosting             none    0.0360    0.0225 0.0293
+7  Gradient boosting           survey    0.0602    0.0403 0.0502
+8  Gradient boosting  survey_balanced    0.0640    0.0464 0.0552
+→ phương án trọng số train được chọn cho GBM: survey_balanced
+
+==============================================================================
+4 · Tune (random search trên CV theo thời gian)
+==============================================================================
+GBM best_params_ = {'l2_regularization': 0.10249816559563214, 'learning_rate': 0.022516907664967046, 'max_depth': None, 'max_features': 0.6070427488160098, 'max_leaf_nodes': 8, 'min_samples_leaf': 100}
+GBM best_score_ (PR-AUC CV) = 0.0584 · n_iter_ (số cây sau dừng sớm) = 1531
+   rank  l2_regularization  learning_rate  max_depth  max_features  max_leaf_nodes  min_samples_leaf  mean_score  std_score  fold1  fold2  seconds
+0     1             0.1025         0.0225        NaN        0.6070               8               100      0.0584     0.0078 0.0662 0.0506  17.5183
+1     2             0.0020         0.0390     4.0000        0.9283              49               400      0.0579     0.0071 0.0649 0.0508  10.5141
+2     3             5.7822         0.0500     6.0000        0.9620               8               100      0.0578     0.0081 0.0659 0.0498   9.7898
+3     4             0.0062         0.0203     6.0000        0.5193              15               100      0.0577     0.0077 0.0654 0.0499  16.5555
+4     5             0.0367         0.0304     8.0000        0.5870              13               800      0.0575     0.0066 0.0640 0.0509  10.9156
+5     6             0.0028         0.0338     4.0000        0.4003              20                20      0.0571     0.0076 0.0648 0.0495  15.4995
+6     7             2.8341         0.0840     4.0000        0.4572              62               800      0.0571     0.0069 0.0640 0.0502   7.0266
+7     8             0.0013         0.0866     8.0000        0.7380              11               800      0.0571     0.0068 0.0639 0.0503   5.6863
+8     9             0.0153         0.0293        NaN        0.9921              31                20      0.0570     0.0082 0.0651 0.0488   9.5924
+9    10             0.0166         0.0292     6.0000        0.6504              44                20      0.0569     0.0086 0.0655 0.0483  13.8369
+Logistic best_params_ = {'C': 1.879466824163847e-05} · best_score_ = 0.0566
+
+Chọn mô hình cuối bằng CV (quy tắc đặt trước: trung bình cao nhất):
+                         val_2022  val_2023   mean
+ứng viên                                          
+GBM tuned                  0.0662    0.0506 0.0584
+logistic tuned             0.0627    0.0505 0.0566
+ensemble GBM + logistic    0.0662    0.0516 0.0589
+
+==============================================================================
+5 · Thang mô hình trên tập test (chấm MỘT lần)
+==============================================================================
+
+--- toàn bộ test (có trọng số)
+                                           pr_auc  lift_pr_auc  roc_auc  brier_skill  log_loss    ece  precision@5%  recall@5%  p_mean  prevalence      n
+mô hình                                                                                                                                                  
+M0 · tỉ lệ chung                           0.0168       1.0000   0.5000      -0.0464    0.0970 0.0277        0.0190     0.0567  0.0445      0.0168  41182
+M1a · chỉ sla_breach                       0.0179       1.0634   0.5147     -13.2124    0.6628 0.4664        0.0268     0.0799  0.4832      0.0168  41182
+M1b · chỉ lead_days (spline)               0.0244       1.4520   0.5772     -12.3758    0.6339 0.4467        0.0353     0.1051  0.4635      0.0168  41182
+M2 · logistic tuned                        0.0641       3.8200   0.7485      -5.3401    0.3762 0.2828        0.0778     0.2314  0.2995      0.0168  41182
+M3 · random forest                         0.0487       2.8977   0.6933      -2.8528    0.2706 0.2021        0.0642     0.1911  0.2189      0.0168  41182
+M4 · GBM mặc định                          0.0582       3.4655   0.7454      -4.1965    0.3147 0.2303        0.0754     0.2246  0.2471      0.0168  41182
+M5 · GBM tuned                             0.0548       3.2658   0.7468      -5.2123    0.3559 0.2588        0.0722     0.2150  0.2756      0.0168  41182
+M6 · ensemble GBM + logistic               0.0632       3.7627   0.7585      -5.1187    0.3628 0.2708        0.0784     0.2334  0.2876      0.0168  41182
+M7 · ensemble + hiệu chỉnh (CHỐT)          0.0632       3.7627   0.7585       0.0218    0.0777 0.0032        0.0784     0.2334  0.0163      0.0168  41182
+M8 · GBM tuned + tín hiệu khách (ex-post)  0.1464       8.7186   0.7979      -3.2271    0.2665 0.1923        0.1162     0.3461  0.2091      0.0168  41182
+
+--- sản phẩm vét cạn (không lấy mẫu)
+                                           pr_auc  lift_pr_auc  roc_auc  brier_skill  log_loss    ece  precision@5%  recall@5%  p_mean  prevalence      n
+mô hình                                                                                                                                                  
+M0 · tỉ lệ chung                           0.0371       1.0000   0.5000      -0.0015    0.1592 0.0074        0.0325     0.0438  0.0445      0.0371  24626
+M1a · chỉ sla_breach                       0.0387       1.0428   0.5134      -5.6656    0.6695 0.4488        0.0487     0.0657  0.4858      0.0371  24626
+M1b · chỉ lead_days (spline)               0.0481       1.2962   0.5677      -5.5242    0.6584 0.4386        0.0609     0.0821  0.4756      0.0371  24626
+M2 · logistic tuned                        0.0856       2.3100   0.6842      -3.3645    0.4902 0.3321        0.1015     0.1369  0.3692      0.0371  24626
+M3 · random forest                         0.0785       2.1177   0.6723      -1.3556    0.3236 0.2091        0.0991     0.1336  0.2462      0.0371  24626
+M4 · GBM mặc định                          0.0769       2.0744   0.6805      -3.3060    0.4800 0.3183        0.1007     0.1358  0.3554      0.0371  24626
+M5 · GBM tuned                             0.0740       1.9962   0.6729      -3.9698    0.5321 0.3510        0.0999     0.1347  0.3881      0.0371  24626
+M6 · ensemble GBM + logistic               0.0823       2.2206   0.6884      -3.5917    0.5066 0.3415        0.1032     0.1391  0.3786      0.0371  24626
+M7 · ensemble + hiệu chỉnh (CHỐT)          0.0823       2.2206   0.6884       0.0157    0.1519 0.0100        0.1032     0.1391  0.0271      0.0371  24626
+M8 · GBM tuned + tín hiệu khách (ex-post)  0.1923       5.1856   0.7655      -2.4788    0.4074 0.2692        0.2015     0.2716  0.3063      0.0371  24626
+
+--- có nhãn khách (2024+)
+                                           pr_auc  lift_pr_auc  roc_auc  brier_skill  log_loss    ece  precision@5%  recall@5%  p_mean  prevalence      n
+mô hình                                                                                                                                                  
+M0 · tỉ lệ chung                           0.0193       1.0000   0.5000      -0.0336    0.1046 0.0252        0.0171     0.0440  0.0445      0.0193  11287
+M1a · chỉ sla_breach                       0.0211       1.0940   0.5179     -11.3761    0.6614 0.4633        0.0316     0.0820  0.4826      0.0193  11287
+M1b · chỉ lead_days (spline)               0.0291       1.5106   0.5810     -10.5714    0.6298 0.4421        0.0478     0.1240  0.4614      0.0193  11287
+M2 · logistic tuned                        0.0719       3.7301   0.7450      -4.3221    0.3661 0.2723        0.0857     0.2220  0.2915      0.0193  11287
+M3 · random forest                         0.0520       2.6985   0.6984      -2.3625    0.2694 0.1968        0.0705     0.1820  0.2160      0.0193  11287
+M4 · GBM mặc định                          0.0646       3.3522   0.7510      -3.2750    0.3017 0.2177        0.0864     0.2240  0.2370      0.0193  11287
+M5 · GBM tuned                             0.0645       3.3438   0.7606      -4.1582    0.3431 0.2474        0.0795     0.2060  0.2667      0.0193  11287
+M6 · ensemble GBM + logistic               0.0719       3.7281   0.7669      -4.1056    0.3515 0.2598        0.0887     0.2300  0.2791      0.0193  11287
+M7 · ensemble + hiệu chỉnh (CHỐT)          0.0719       3.7281   0.7669       0.0217    0.0868 0.0050        0.0887     0.2300  0.0154      0.0193  11287
+M8 · GBM tuned + tín hiệu khách (ex-post)  0.2744      14.2311   0.8542      -2.3517    0.2428 0.1709        0.1875     0.4760  0.1902      0.0193  11287
+
+Hiệu chỉnh Platt: slope a = 1.262, intercept b = -3.169 (học trên 26,591 dòng năm 2023)
+
+==============================================================================
+6 · So sánh ghép cặp (bootstrap theo cụm sản phẩm, KTC 95%)
+==============================================================================
+ΔPR-AUC (M7 · ensemble + hiệu chỉnh (CHỐT) − M2 · logistic tuned): -0.0010 [-0.0043, 0.0026] (95% CI, n=41,182, n_eff=13100, cụm=2,252)
+ΔPR-AUC (M7 · ensemble + hiệu chỉnh (CHỐT) − M5 · GBM tuned): 0.0083 [0.0052, 0.0128] (95% CI, n=41,182, n_eff=13100, cụm=2,252)
+ΔPR-AUC (M5 · GBM tuned − M4 · GBM mặc định): -0.0034 [-0.0078, 0.0002] (95% CI, n=41,182, n_eff=13100, cụm=2,252)
+ΔPR-AUC (M7 · ensemble + hiệu chỉnh (CHỐT) − M1b · chỉ lead_days (spline)): 0.0388 [0.0318, 0.0486] (95% CI, n=41,182, n_eff=13100, cụm=2,252)
+ΔPR-AUC (M1b · chỉ lead_days (spline) − M1a · chỉ sla_breach): 0.0065 [0.0050, 0.0093] (95% CI, n=41,182, n_eff=13100, cụm=2,252)
+
+==============================================================================
+7 · C9 — ablation trung tâm trên tập test có nhãn khách
+==============================================================================
+                                      pr_auc  lift_pr_auc  roc_auc  brier_skill  log_loss    ece  precision@5%  recall@5%  p_mean  prevalence      n
+mô hình                                                                                                                                             
+M1a · sla_breach (doanh nghiệp đo)    0.0211       1.0940   0.5179      -0.0259    0.1028 0.0226        0.0316     0.0820  0.0419      0.0193  11287
+M1b · lead_days (thông tin đầy đủ)    0.0291       1.5104   0.5809      -0.0223    0.1011 0.0207        0.0478     0.1240  0.0399      0.0193  11287
+M1c · khách nói trễ (khách cảm nhận)  0.0292       1.5144   0.5503       0.0080    0.0931 0.0016        0.0556     0.1440  0.0209      0.0193  11287
+M1d · lead_days + khách nói trễ       0.0486       2.5209   0.6129       0.0079    0.0929 0.0044        0.0648     0.1680  0.0221      0.0193  11287
+ΔPR-AUC (M1b · lead_days (thông tin đầy đủ) − M1a · sla_breach (doanh nghiệp đo)): 0.0080 [0.0052, 0.0127] (95% CI, n=11,287, n_eff=3270, cụm=1,768)
+ΔPR-AUC (M1c · khách nói trễ (khách cảm nhận) − M1a · sla_breach (doanh nghiệp đo)): 0.0081 [0.0034, 0.0151] (95% CI, n=11,287, n_eff=3270, cụm=1,768)
+ΔPR-AUC (M1d · lead_days + khách nói trễ − M1b · lead_days (thông tin đầy đủ)): 0.0195 [0.0109, 0.0342] (95% CI, n=11,287, n_eff=3270, cụm=1,768)
+ΔPR-AUC (M8 · GBM tuned + tín hiệu khách (ex-post) − M5 · GBM tuned): 0.2099 [0.1614, 0.2651] (95% CI, n=11,287, n_eff=3270, cụm=1,768)
+
+==============================================================================
+8 · Ablation theo nhóm feature — ensemble M6 (train lại, giữ siêu tham số)
+==============================================================================
+                     số feature  toàn bộ test (có trọng số)  sản phẩm vét cạn (không lấy mẫu)  Δ toàn bộ test (có trọng số)  Δ sản phẩm vét cạn (không lấy mẫu)
+biến thể                                                                                                                                                       
+(đầy đủ)                     17                      0.0632                            0.0823                        0.0000                              0.0000
+bỏ giao_hang                 14                      0.0619                            0.0806                       -0.0013                             -0.0017
+bỏ thoi_diem_mua             14                      0.0647                            0.0840                        0.0015                              0.0016
+bỏ san_pham                  13                      0.0616                            0.0803                       -0.0016                             -0.0021
+bỏ lich_su_san_pham          15                      0.0529                            0.0793                       -0.0103                             -0.0030
+bỏ lich_su_nha_ban           15                      0.0628                            0.0836                       -0.0004                              0.0013
+bỏ khach_hang                14                      0.0561                            0.0690                       -0.0071                             -0.0134
+
+Permutation importance (PR-AUC có trọng số tụt khi xáo trộn, test):
+              feature  giảm_pr_auc  độ_lệch_chuẩn
+0         prod_hist_n       0.0165         0.0016
+1      cust_hist_rate       0.0137         0.0007
+2      prod_hist_rate       0.0099         0.0009
+3    seller_hist_rate       0.0083         0.0007
+4         cust_hist_n       0.0043         0.0014
+5           lead_days       0.0036         0.0002
+6       seller_hist_n       0.0031         0.0006
+7           log_price       0.0017         0.0006
+8            category       0.0009         0.0003
+9      delivered_hour       0.0003         0.0002
+10   cust_tenure_days       0.0002         0.0008
+11      discount_rate       0.0001         0.0004
+12      purchase_hour      -0.0000         0.0002
+13  delivered_weekend      -0.0001         0.0000
+14   purchase_weekday      -0.0002         0.0005
+15    is_tiki_trading      -0.0002         0.0001
+16     purchase_month      -0.0004         0.0003
+
+==============================================================================
+9 · C14 — bẫy SLA: Tiki Trading vs bên thứ ba (mọi review có nhãn, 2023+)
+==============================================================================
+nhóm                          Bên thứ ba  Tiki Trading
+n                                   4243         11573
+n_eff                          2848.0241     3584.5668
+trong SLA · khách đúng hẹn          4033         11127
+trong SLA · khách trễ                 53           199
+vượt SLA · khách đúng hẹn            136           203
+vượt SLA · khách trễ                  21            44
+báo_động_giả                      0.8883        0.8208
+n_eff_báo_động_giả              101.0586       78.6319
+cờ_báo_động_giả                           ⚠️ MONG MANH
+bỏ_sót                            0.7324        0.8479
+n_eff_bỏ_sót                     70.1735       68.4218
+cờ_bỏ_sót                   ⚠️ MONG MANH  ⚠️ MONG MANH
+Δ báo_động_giả (Tiki Trading − bên thứ ba): -0.0675 [-0.1759, 0.0225] (95% CI, n=15,816, n_eff=4689, cụm=1,916)
+Δ bỏ_sót (Tiki Trading − bên thứ ba): 0.1155 [-0.0214, 0.2422] (95% CI, n=15,816, n_eff=4689, cụm=1,916)

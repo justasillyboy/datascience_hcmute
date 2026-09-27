@@ -14,3 +14,8 @@ venv/
 reports/figures/*.png
 logs_*.txt
 CLAUDE.md
+
+# Track C: gói Kaggle (chứa dữ liệu rút gọn — không commit) và mô hình nhị phân (tái tạo bằng run_modeling)
+dist/
+reports/models/*.joblib
+notebooks/_smoke_*.ipynb

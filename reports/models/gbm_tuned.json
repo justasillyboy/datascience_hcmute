@@ -1,0 +1,74 @@
+{
+  "model": "GBMModel",
+  "name": "hist_gbm",
+  "params": {
+    "categorical": [
+      "category"
+    ],
+    "class_weight": null,
+    "early_stopping": true,
+    "features": [
+      "lead_days",
+      "delivered_hour",
+      "delivered_weekend",
+      "purchase_month",
+      "purchase_weekday",
+      "purchase_hour",
+      "category",
+      "is_tiki_trading",
+      "log_price",
+      "discount_rate",
+      "prod_hist_n",
+      "prod_hist_rate",
+      "seller_hist_n",
+      "seller_hist_rate",
+      "cust_tenure_days",
+      "cust_hist_n",
+      "cust_hist_rate"
+    ],
+    "l2_regularization": 0.10249816559563214,
+    "learning_rate": 0.022516907664967046,
+    "max_bins": 255,
+    "max_depth": null,
+    "max_features": 0.6070427488160098,
+    "max_iter": 2000,
+    "max_leaf_nodes": 8,
+    "min_samples_leaf": 100,
+    "n_iter_no_change": 30,
+    "random_state": 42,
+    "validation_fraction": 0.1
+  },
+  "best_params": {
+    "l2_regularization": 0.10249816559563214,
+    "learning_rate": 0.022516907664967046,
+    "max_depth": null,
+    "max_features": 0.6070427488160098,
+    "max_leaf_nodes": 8,
+    "min_samples_leaf": 100
+  },
+  "best_score_pr_auc_cv": 0.05841500860176485,
+  "tuning_space": {
+    "learning_rate": "<scipy.stats._distn_infrastructure.rv_continuous_frozen object at 0x146406090>",
+    "max_leaf_nodes": "<scipy.stats._distn_infrastructure.rv_discrete_frozen object at 0x146448d10>",
+    "max_depth": [
+      null,
+      4,
+      6,
+      8
+    ],
+    "min_samples_leaf": [
+      20,
+      50,
+      100,
+      200,
+      400,
+      800
+    ],
+    "l2_regularization": "<scipy.stats._distn_infrastructure.rv_continuous_frozen object at 0x146448c50>",
+    "max_features": "<scipy.stats._distn_infrastructure.rv_continuous_frozen object at 0x146448ef0>"
+  },
+  "tuning_cv": "YearForwardSplit(val_years=(2022, 2023))",
+  "n_candidates": 40,
+  "sklearn": "1.5.1",
+  "exported_at": "2026-09-27T20:26:56"
+}

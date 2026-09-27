@@ -1,0 +1,44 @@
+{
+  "model": "LogisticModel",
+  "name": "logistic",
+  "params": {
+    "C": 1.879466824163847e-05,
+    "categorical": [
+      "category"
+    ],
+    "class_weight": null,
+    "features": [
+      "lead_days",
+      "delivered_hour",
+      "delivered_weekend",
+      "purchase_month",
+      "purchase_weekday",
+      "purchase_hour",
+      "category",
+      "is_tiki_trading",
+      "log_price",
+      "discount_rate",
+      "prod_hist_n",
+      "prod_hist_rate",
+      "seller_hist_n",
+      "seller_hist_rate",
+      "cust_tenure_days",
+      "cust_hist_n",
+      "cust_hist_rate"
+    ],
+    "max_iter": 2000,
+    "n_knots": 6,
+    "spline_features": []
+  },
+  "best_params": {
+    "C": 1.879466824163847e-05
+  },
+  "best_score_pr_auc_cv": 0.05662059766158066,
+  "tuning_space": {
+    "C": "<scipy.stats._distn_infrastructure.rv_continuous_frozen object at 0x146448e90>"
+  },
+  "tuning_cv": "YearForwardSplit(val_years=(2022, 2023))",
+  "n_candidates": 15,
+  "sklearn": "1.5.1",
+  "exported_at": "2026-09-27T20:27:13"
+}
