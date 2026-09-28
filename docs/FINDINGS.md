@@ -455,6 +455,36 @@ vùng miền của Olist.
 5. **Modeling** — dự đoán `is_low_rating`, thang baseline, ablation trên nhóm biến giao hàng.
 6. **Đối chiếu Olist** làm tham chiếu quốc tế (chỉ so sánh, không phải nguồn phân tích).
 
+## 10. Thư viện hình EDA
+
+Các hình dưới đây được sinh từ `src/viz/` và được sử dụng trong
+`notebooks/01_eda.ipynb`. Mỗi hình gắn với một kết luận cụ thể của EDA.
+
+- `B04_lead_days.png` → Lead Time có phân phối lệch phải; phần lớn đơn hàng nằm trong SLA 5 ngày nhưng vẫn tồn tại đuôi giao hàng kéo dài vượt ngưỡng SLA.
+
+- `B05_lead_days_by_year.png` → Phân phối Lead Time thay đổi rõ theo thời gian; năm 2021 nổi bật với độ phân tán lớn và phần trên của phân phối vượt xa SLA 5 ngày, trong khi Lead Time giảm rõ rệt từ 2022–2024 trước khi tăng nhẹ trở lại vào 2025–2026.
+
+- `B06_lead_days_quantiles.png` → Median Lead Time khoảng 1,26 ngày, tương đương khoảng 25% ngưỡng SLA 5 ngày; tuy nhiên p95 đạt 5,92 ngày và p99 đạt 18,62 ngày, cho thấy các trường hợp giao hàng rất chậm tập trung ở phần đuôi phân phối.
+
+- `B07_sla_by_year.png` → SLA Breach Rate giảm rõ rệt ở giai đoạn gần đây, trong khi năm 2021 nổi bật với tỷ lệ vượt SLA cao dù có sample size lớn và cần được kiểm tra bằng phân tích sensitivity.
+
+- `B08_rating.png` → Sau khi điều chỉnh stratified sampling bằng trọng số, Rating 5★ chiếm tỷ trọng lớn hơn rõ rệt, cho thấy Raw Sample không phản ánh trực tiếp phân phối Rating của quần thể.
+
+- `B09_rating_by_lead_time.png` → Weighted Mean Rating giảm dần khi Lead Time tăng, từ khoảng 4,85 ở nhóm 0–1 ngày xuống khoảng 4,57 ở nhóm >10 ngày; đây là mối liên hệ quan sát được, không phải bằng chứng nhân quả.
+
+- `B10_SLA Status vs. Customer-Reported Delivery Status.png` → SLA và đánh giá giao hàng của khách hàng nhìn chung đồng thuận nhưng không hoàn toàn tương đương: vẫn tồn tại các đơn Within SLA bị khách báo trễ và các đơn SLA Breach được khách báo đúng hẹn.
+
+- `B11_forest_plot.png` → Chênh lệch sức phân biệt giữa nhãn khách hàng và SLA duy trì dương qua các lần phân tích, với các 95% CI không chứa 0, cho thấy kết luận chính ổn định khi quy mô dữ liệu tăng và sau hiệu chỉnh múi giờ.
+
+- `B12_timezone_correction.png` → Hiệu chỉnh múi giờ làm Lead Time dịch khoảng 0,2917 ngày, tương đương 7 giờ, phù hợp với phép kiểm chứng sai lệch đồng hồ 7,0000 giờ.
+
+- `B13_n_vs_neff.png` → `n_eff` nhỏ hơn đáng kể so với số quan sát `n`; ở nhóm ước lượng mong manh, số dòng lớn không đồng nghĩa với lượng thông tin hiệu dụng lớn.
+
+- `B14_Customer-Reported Delivery Label Coverage by Year.png` → Customer-Reported Delivery Label gần như không tồn tại trước năm 2023 và chỉ có độ phủ hạn chế từ 2023 trở đi, vì vậy các phân tích phụ thuộc nhãn cần lưu ý missingness và selection bias.
+
+- `B19_seller_sla_trap.png` → Cả Tiki Trading và bên thứ ba đều thể hiện mức bất đồng đáng kể giữa SLA và cảm nhận giao hàng của khách hàng; tuy các tỷ lệ quan sát được khác nhau, 95% CI của cả hai chênh lệch đều chứa 0 nên chưa đủ bằng chứng thống kê để kết luận mức độ bẫy SLA khác nhau giữa hai nhóm nhà bán.
+
+
 ## 11. Modeling — Track C
 
 > Mọi con số dưới đây sinh ra bằng **một lệnh**: `python3 -m src.models.run_modeling`
