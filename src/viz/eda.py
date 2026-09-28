@@ -9,8 +9,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from src.evaluate.stats import effective_sample_size, weighted_mean, weighted_proportion,cluster_bootstrap
+from src.evaluate.stats import effective_sample_size, weighted_mean, weighted_proportion,cluster_bootstrap,weighted_quantile
 from src.viz.theme import PALETTE, save_fig
+from src.viz.weighted import weighted_box
 
 
 def plot_sla_2x2(df: pd.DataFrame, output: str = "B10_SLA Status vs. Customer-Reported Delivery Status.png"):
@@ -128,6 +129,216 @@ def plot_lead_days_hist(df: pd.DataFrame, output: str = "B04_lead_days.png"):
     fig.tight_layout()
     path = save_fig(fig, output)
     return fig, path
+
+def plot_lead_days_box_by_year(
+    df: pd.DataFrame,
+    output: str = "B05_lead_days_by_year.png",
+):
+    """B5: Weighted boxplot Lead Time theo năm."""
+    d = df[
+        df["is_analysable"]
+        & df["lead_days"].notna()
+        & df["weight"].notna()
+    ].copy()
+
+    d["year"] = pd.to_datetime(d["review_ts"]).dt.year
+
+    # Chỉ giữ các năm có đủ số quan sát để boxplot có ý nghĩa.
+    year_counts = d.groupby("year").size()
+    years = year_counts[year_counts >= 100].index.to_list()
+
+    d = d[d["year"].isin(years)].copy()
+
+    fig, ax = plt.subplots(figsize=(11, 5.8))
+
+    stats = weighted_box(
+        values=d["lead_days"].to_numpy(dtype=float),
+        groups=d["year"].to_numpy(),
+        weights=d["weight"].to_numpy(dtype=float),
+        labels=years,
+        ax=ax,
+        widths=0.6,
+        patch_artist=True,
+        boxprops={"alpha": 0.65},
+        medianprops={"linewidth": 2},
+        whiskerprops={"linewidth": 1.2},
+        capprops={"linewidth": 1.2},
+    )
+
+    # SLA 5 ngày
+    ax.axhline(
+        5,
+        linestyle="--",
+        linewidth=1.8,
+        label="SLA = 5 ngày",
+    )
+
+    ax.set_xlabel("Năm", labelpad=32)
+    ax.set_ylabel("Lead Time (ngày)")
+    ax.set_title("Phân phối Lead Time theo năm")
+
+    ax.legend()
+
+    # Ghi sample size dưới mỗi năm.
+    n_by_year = d.groupby("year").size()
+
+    for i, year in enumerate(years, start=1):
+        ax.text(
+            i,
+            -0.07,
+            f"n={int(n_by_year.loc[year]):,}",
+            transform=ax.get_xaxis_transform(),
+            ha="center",
+            va="top",
+            fontsize=8,
+        )
+
+    fig.text(
+        0.5,
+        0.01,
+        "Boxplot sử dụng weighted quantiles; các năm có n < 100 không được hiển thị.",
+        ha="center",
+        fontsize=9,
+    )
+
+    fig.tight_layout(rect=[0, 0.11, 1, 1])
+
+    path = save_fig(fig, output)
+
+    result = pd.DataFrame(
+        {
+            "year": years,
+            "n": [int(n_by_year.loc[y]) for y in years],
+            "q1": [s["q1"] for s in stats],
+            "median": [s["med"] for s in stats],
+            "q3": [s["q3"] for s in stats],
+        }
+    )
+
+    return fig, result, path
+
+def plot_lead_days_quantiles(
+    df: pd.DataFrame,
+    output: str = "B06_lead_days_quantiles.png",
+):
+    """B6: Các weighted quantiles của Lead Time từ p10 đến p99."""
+    d = df[
+        df["is_analysable"]
+        & df["lead_days"].notna()
+        & df["weight"].notna()
+    ].copy()
+
+    values = d["lead_days"].to_numpy(dtype=float)
+    weights = d["weight"].to_numpy(dtype=float)
+
+    # Các phân vị cần thể hiện trong B6.
+    probs = np.array([0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99])
+
+    quantiles = np.array(
+        [
+            weighted_quantile(values, weights, q)
+            for q in probs
+        ],
+        dtype=float,
+    )
+
+    percentile_labels = [
+        "p10",
+        "p25",
+        "p50",
+        "p75",
+        "p90",
+        "p95",
+        "p99",
+    ]
+
+    fig, ax = plt.subplots(figsize=(10.5, 5.8))
+
+    x = np.arange(len(probs))
+
+    ax.plot(
+        x,
+        quantiles,
+        marker="o",
+        linewidth=2,
+        markersize=7,
+        label="Weighted Quantile",
+    )
+
+    # Ngưỡng SLA của hệ thống.
+    ax.axhline(
+        5.0,
+        linestyle="--",
+        linewidth=1.8,
+        label="SLA = 5 ngày",
+    )
+
+    # Ghi giá trị Lead Time tại từng phân vị.
+    for xi, value in zip(x, quantiles):
+        ax.annotate(
+            f"{value:.2f}",
+            xy=(xi, value),
+            xytext=(0, 8),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+            fontweight="bold",
+        )
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(percentile_labels)
+
+    ax.set_xlabel("Phân vị")
+    ax.set_ylabel("Lead Time (ngày)")
+    ax.set_title("Các phân vị có trọng số của Lead Time")
+
+    ax.legend()
+
+    # Làm nổi bật median để truyền tải thông điệp của task B6.
+    median_value = float(quantiles[2])
+    median_sla_pct = median_value / 5.0 * 100.0
+
+    ax.annotate(
+        f"Median = {median_value:.2f} ngày\n"
+        f"≈ {median_sla_pct:.0f}% của SLA 5 ngày",
+        xy=(x[2], median_value),
+        xytext=(45, 45),
+        textcoords="offset points",
+        ha="left",
+        va="bottom",
+        arrowprops={
+            "arrowstyle": "->",
+            "linewidth": 1.2,
+        },
+        fontsize=9,
+        bbox={
+            "boxstyle": "round,pad=0.4",
+            "alpha": 0.85,
+        },
+    )
+
+    fig.text(
+        0.5,
+        0.01,
+        "Các phân vị được tính với trọng số để phản ánh phân phối của quần thể.",
+        ha="center",
+        fontsize=9,
+    )
+
+    fig.tight_layout(rect=[0, 0.06, 1, 1])
+
+    path = save_fig(fig, output)
+
+    result = pd.DataFrame(
+        {
+            "percentile": percentile_labels,
+            "probability": probs,
+            "lead_days": quantiles,
+        }
+    )
+
+    return fig, result, path
 
 
 def plot_sla_by_year(df: pd.DataFrame, output: str = "B07_sla_by_year.png"):
@@ -306,7 +517,7 @@ def plot_rating_by_lead_time(
             g,
             statistic=rating_statistic,
             cluster_col="product_id",
-            n_boot=500,
+            n_boot=10000,
             name="weighted_mean_rating",
             weight_col="weight"
         )
@@ -955,5 +1166,141 @@ def plot_n_vs_neff(
     )
 
     path = save_fig(fig, output)
+
+    return fig, result, path
+
+def plot_seller_sla_trap(
+    csv_path,
+    output: str = "B19_seller_sla_trap.png",
+):
+    """
+    B19: So sánh hai biểu hiện của bẫy SLA giữa
+    Tiki Trading và bên thứ ba từ kết quả C14.
+
+    Dữ liệu được đọc trực tiếp từ reports/models/c14_sla_trap.csv,
+    không hard-code các tỷ lệ trong hàm.
+    """
+    d = pd.read_csv(csv_path).copy()
+
+    required_cols = {
+        "nhóm",
+        "n",
+        "báo_động_giả",
+        "n_eff_báo_động_giả",
+        "bỏ_sót",
+        "n_eff_bỏ_sót",
+    }
+    missing = required_cols.difference(d.columns)
+    if missing:
+        raise ValueError(
+            f"Thiếu cột trong C14: {sorted(missing)}"
+        )
+
+    # Giữ thứ tự cố định để hình dễ đọc.
+    order = ["Tiki Trading", "Bên thứ ba"]
+    d = d.set_index("nhóm").reindex(order)
+
+    if d[["báo_động_giả", "bỏ_sót"]].isna().any().any():
+        raise ValueError(
+            "Không tìm thấy đầy đủ hai nhóm Tiki Trading/Bên thứ ba trong C14."
+        )
+
+    x = np.arange(len(order))
+    width = 0.34
+
+    false_alarm = d["báo_động_giả"].to_numpy(dtype=float) * 100
+    miss = d["bỏ_sót"].to_numpy(dtype=float) * 100
+
+    fig, ax = plt.subplots(figsize=(10.5, 5.8))
+
+    bars_false = ax.bar(
+        x - width / 2,
+        false_alarm,
+        width,
+        label="Báo động giả: vượt SLA nhưng khách nói đúng hẹn",
+        alpha=0.8,
+    )
+    bars_miss = ax.bar(
+        x + width / 2,
+        miss,
+        width,
+        label="Bỏ sót: trong SLA nhưng khách nói trễ",
+        alpha=0.8,
+    )
+
+    # Ghi tỷ lệ trên từng cột.
+    for bars in (bars_false, bars_miss):
+        for bar in bars:
+            value = bar.get_height()
+            ax.annotate(
+                f"{value:.1f}%",
+                xy=(bar.get_x() + bar.get_width() / 2, value),
+                xytext=(0, 4),
+                textcoords="offset points",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+                fontweight="bold",
+            )
+
+    # Sample size của từng nhóm.
+    for i, group in enumerate(order):
+        ax.text(
+            i,
+            -0.08,
+            f"n={int(d.loc[group, 'n']):,}",
+            transform=ax.get_xaxis_transform(),
+            ha="center",
+            va="top",
+            fontsize=9,
+        )
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(order)
+    ax.set_ylabel("Tỷ lệ (%)")
+    fig.suptitle(
+    "Phân rã bẫy SLA theo nhóm nhà bán",
+    fontsize=14,
+    y=0.97,
+    )
+    ax.set_ylim(0, 100)
+    handles, labels = ax.get_legend_handles_labels()
+
+    fig.legend(
+        handles,
+        labels,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.91),
+        frameon=True,
+        ncol=2,
+        fontsize=9,
+    )
+
+    fig.text(
+        0.5,
+        0.01,
+        "C14: khác biệt giữa hai nhóm chưa đủ bằng chứng thống kê "
+        "(95% CI của cả hai chênh lệch đều chứa 0).",
+        ha="center",
+        fontsize=9,
+    )
+
+    fig.subplots_adjust(
+    top=0.78,
+    bottom=0.20,
+    left=0.10,
+    right=0.97,
+    )
+    path = save_fig(fig, output)
+
+    result = d[
+        [
+            "n",
+            "báo_động_giả",
+            "n_eff_báo_động_giả",
+            "bỏ_sót",
+            "n_eff_bỏ_sót",
+        ]
+    ].reset_index()
 
     return fig, result, path

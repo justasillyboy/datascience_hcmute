@@ -22,6 +22,9 @@ from src.viz.eda import (
     plot_batch_forest,
     plot_timezone_correction,
     plot_n_vs_neff,
+    plot_lead_days_box_by_year,
+    plot_lead_days_quantiles,
+    plot_seller_sla_trap,
 )
 
 DATA_PATH = Path("data/processed/reviews_clean.parquet")
@@ -50,6 +53,20 @@ def main() -> None:
     fig, path = plot_lead_days_hist(df)
     print(f"Đã lưu: {path}")
     plt.close(fig)
+    
+    # B5 - Lead_days_box_by_year   
+    print("Generating B05: Lead Time boxplot by year...")
+    fig, result_b5, path_b5 = plot_lead_days_box_by_year(df)
+    plt.close(fig)
+    print(result_b5.to_string(index=False))
+    print(f"Saved: {path_b5}")
+    
+    # B6 Weighted Lead Time quantiles
+    print("\nGenerating B06: Weighted Lead Time quantiles...")
+    fig, result_b6, path_b6 = plot_lead_days_quantiles(df)
+    plt.close(fig)
+    print(result_b6.to_string(index=False))
+    print(f"Saved: {path_b6}")
     
     # B7 - SLA Breach Rate by Year
     print("\nB7 — Tỷ lệ SLA Breach theo năm")
@@ -92,6 +109,18 @@ def main() -> None:
     print(f"Đã lưu: {path}")
     plt.close(fig)
 
+print("\nGenerating B19: SLA trap by seller group...")
+
+c14_path = Path("reports/models/c14_sla_trap.csv")
+
+fig, result_b19, path_b19 = plot_seller_sla_trap(
+    c14_path
+)
+
+plt.close(fig)
+
+print(result_b19.to_string(index=False))
+print(f"Saved: {path_b19}")
 
 if __name__ == "__main__":
     main()
