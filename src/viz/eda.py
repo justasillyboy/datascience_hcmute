@@ -73,7 +73,7 @@ def plot_label_coverage_by_year(df: pd.DataFrame, output: str = "B14_Customer-Re
     ax.set_xticks(result["year"])
     ax.set_ylim(0, max(5, result["coverage_pct"].max() * 1.25))
     for _, row in result.iterrows():
-        ax.text(row["year"], row["coverage_pct"] + 0.05, f"n={int(row['n']):,}", ha="center", va="bottom", fontsize=8, rotation=90)
+        ax.text(row["year"], row["coverage_pct"] + 0.05, f"n={int(row['n']):,}", ha="center", va="bottom", fontsize=8, rotation=0)
     fig.text(0.5, 0.01, "Trước năm 2023 gần như không có label; từ năm 2023 bắt đầu xuất hiện customer-reported delivery labels.", ha="center", fontsize=9)
     fig.tight_layout(rect=(0, 0.04, 1, 1))
     path = save_fig(fig, output)
@@ -342,6 +342,24 @@ def plot_rating_by_lead_time(
         label="Weighted Mean Rating (95% CI)"
     )
     
+    # Đặt label cao hơn đầu trên của error bar
+    upper_error = yerr[1]
+
+    for xi, yi, err_up in zip(x, y, upper_error):
+        label_y = yi + err_up
+
+        ax.annotate(
+            f"{yi:.2f}",
+            xy=(xi, label_y),
+            xytext=(0, 6),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            fontweight="bold",
+            zorder=10,
+    )
+    
     ax.axvline(
         3.5,
         linestyle="--",
@@ -365,16 +383,7 @@ def plot_rating_by_lead_time(
         fontsize=9
     )
     
-    for xi, yi in zip(x, y):
-        ax.annotate(
-            f"{yi:.2f}",
-            (xi, yi),
-            xytext=(0, 10),
-            textcoords="offset points",
-            ha="center",
-            fontsize=8,
-            fontweight="bold"
-        )
+    
     
     ax.set_xticks(
         x,
@@ -404,51 +413,59 @@ def plot_rating_by_lead_time(
 
 def plot_batch_forest(
     output: str = "B11_forest_plot.png"
-    ):
-    """Forest plot kiểm tra độ ổn định của kết luận chính qua các mẻ phân tích."""
-    
+):
+    """Forest plot kiểm tra độ ổn định của kết luận chính qua các lần phân tích."""
+
     result = pd.DataFrame({
         "stage": [
-        "Mẫu 66.851",
-        "Mẫu 117.819",
-        "117.819 + sửa múi giờ",
-        "Mẫu 203.510"
+            "Mẫu 66.851",
+            "Mẫu 117.819",
+            "117.819 + sửa múi giờ",
+            "Mẫu 203.510"
         ],
         "estimate": [
-        0.209,
-        0.241,
-        0.234,
-        0.2082
+            0.209,
+            0.241,
+            0.234,
+            0.2082
         ],
         "ci_low": [
-        0.060,
-        0.129,
-        0.113,
-        0.097
+            0.060,
+            0.129,
+            0.113,
+            0.097
         ],
         "ci_high": [
-        0.440,
-        0.398,
-        0.393,
-        0.353
+            0.440,
+            0.398,
+            0.393,
+            0.353
         ],
         "n_eff": [
-        1019,
-        1960,
-        1960,
-        4689
+            1019,
+            1960,
+            1960,
+            4689
         ]
     })
-    
+
+    # ---------------------------------------------------------
+    # Chuẩn bị dữ liệu
+    # ---------------------------------------------------------
     y = np.arange(len(result))
-    fig, ax = plt.subplots(figsize=(10, 5.5))
-    
     estimate = result["estimate"].to_numpy()
+
     xerr = np.vstack([
         estimate - result["ci_low"].to_numpy(),
         result["ci_high"].to_numpy() - estimate
     ])
-    
+
+    # ---------------------------------------------------------
+    # Figure
+    # ---------------------------------------------------------
+    fig, ax = plt.subplots(figsize=(11.5, 6.2))
+
+    # 95% CI + point estimate
     ax.errorbar(
         estimate,
         y,
@@ -456,60 +473,64 @@ def plot_batch_forest(
         fmt="o",
         markersize=8,
         capsize=5,
-        linewidth=2,
-        label="Estimate (95% CI)"
+        linewidth=2
     )
-    
+
+    # Mốc không có chênh lệch
     ax.axvline(
         0,
         linestyle="--",
         linewidth=1.5
     )
-    
-    ax.text(
-        0,
-        3.35,
-        "Không có chênh lệch",
-        ha="center",
-        va="top",
-        fontsize=8
-    )
-    
-    ax.set_yticks(
-        y,
-        result["stage"]
-    )
+
+    # ---------------------------------------------------------
+    # Nhãn các lần phân tích
+    # ---------------------------------------------------------
+    ax.set_yticks(y)
+    ax.set_yticklabels(result["stage"], fontsize=10)
+
     ax.invert_yaxis()
-    
+
+    # Tạo khoảng trống phía trên cho header
+    ax.set_ylim(3.35, -0.65)
+
+    # ---------------------------------------------------------
+    # Cột số liệu bên phải
+    # ---------------------------------------------------------
+    x_ci = 0.46
+    x_neff = 0.64
+
     for yi, row in result.iterrows():
+
         estimate_ci = (
             f"{row['estimate']:+.3f} "
             f"[{row['ci_low']:.3f}, {row['ci_high']:.3f}]"
         )
 
         ax.text(
-            0.46,
+            x_ci,
             yi,
             estimate_ci,
-            va="center",
             ha="left",
+            va="center",
             fontsize=9
         )
 
         ax.text(
-            0.60,
+            x_neff,
             yi,
             f"{int(row['n_eff']):,}",
-            va="center",
             ha="center",
+            va="center",
             fontsize=9
         )
-    
-    ax.set_xlim(-0.02, 0.67)
-    
+
+    # Header của hai cột
+    header_y = -0.43
+
     ax.text(
-        0.46,
-        -0.35,
+        x_ci,
+        header_y,
         "Estimate [95% CI]",
         ha="left",
         va="center",
@@ -518,19 +539,421 @@ def plot_batch_forest(
     )
 
     ax.text(
-        0.60,
-        -0.35,
+        x_neff,
+        header_y,
         "n_eff",
         ha="center",
         va="center",
         fontsize=9,
         fontweight="bold"
     )
-    
-    ax.set_xlabel("Chênh lệch sức phân biệt (Rating)")
+
+    # ---------------------------------------------------------
+    # Trục và tiêu đề
+    # ---------------------------------------------------------
+    ax.set_xlim(-0.02, 0.70)
+
+    ax.set_xlabel(
+        "Chênh lệch sức phân biệt (nhãn khách hàng − SLA)",
+        fontsize=10
+    )
+
     ax.set_ylabel("")
-    ax.set_title("Độ ổn định của kết luận chính qua các lần phân tích")
-    
-    fig.tight_layout()
+
+    ax.set_title(
+        "Độ ổn định của kết luận chính qua các lần phân tích",
+        fontsize=14,
+        pad=22
+    )
+
+    # ---------------------------------------------------------
+    # Chú thích mốc 0
+    # ---------------------------------------------------------
+    ax.annotate(
+        "Không có chênh lệch",
+        xy=(0, 3.35),
+        xytext=(0, -22),
+        textcoords="offset points",
+        ha="center",
+        va="top",
+        fontsize=8,
+        annotation_clip=False
+    )
+
+    # ---------------------------------------------------------
+    # Ghi chú học thuật
+    # ---------------------------------------------------------
+    fig.text(
+        0.5,
+        0.025,
+        "Điểm biểu diễn estimate; thanh ngang biểu diễn 95% CI. "
+        "Cả bốn KTC đều không chứa 0.",
+        ha="center",
+        fontsize=9
+    )
+
+    # Dành riêng khoảng trống cho title và footnote
+    fig.subplots_adjust(
+        left=0.19,
+        right=0.97,
+        top=0.84,
+        bottom=0.17
+    )
+
     path = save_fig(fig, output)
+
+    return fig, result, path
+
+
+def plot_timezone_correction(
+    output: str = "B12_timezone_correction.png"
+):
+    """Minh họa ảnh hưởng của sửa múi giờ và kiểm chứng độ lệch 7 giờ."""
+
+    # Pilot n=490: các quantile lead time trước/sau sửa múi giờ.
+    quantiles = ["p25", "Median", "p75"]
+
+    before = np.array([
+        0.47,
+        1.07,
+        2.12
+    ])
+
+    after = np.array([
+        0.18,
+        0.78,
+        1.83
+    ])
+
+    y = np.arange(len(quantiles))
+
+    fig, (ax1, ax2) = plt.subplots(
+        1,
+        2,
+        figsize=(12, 5.8),
+        gridspec_kw={
+            "width_ratios": [1.5, 1]
+        }
+    )
+
+    # =========================================================
+    # PANEL A — Lead Time trước/sau sửa múi giờ
+    # =========================================================
+    ax1.scatter(
+        before,
+        y,
+        s=70,
+        label="Trước sửa múi giờ",
+        zorder=3
+    )
+
+    ax1.scatter(
+        after,
+        y,
+        s=70,
+        label="Sau sửa múi giờ",
+        zorder=3
+    )
+
+    # Nối từng cặp before/after
+    for yi, x_before, x_after in zip(y, before, after):
+        ax1.plot(
+            [x_after, x_before],
+            [yi, yi],
+            linewidth=2,
+            alpha=0.55,
+            color="gray",
+            zorder=1
+        )
+
+        ax1.annotate(
+            f"{x_before:.2f}",
+            (x_before, yi),
+            xytext=(7, 8),
+            textcoords="offset points",
+            ha="left",
+            va="bottom",
+            fontsize=8
+        )
+
+        ax1.annotate(
+            f"{x_after:.2f}",
+            (x_after, yi),
+            xytext=(-7, 8),
+            textcoords="offset points",
+            ha="right",
+            va="bottom",
+            fontsize=8
+        )
+
+    ax1.set_yticks(y)
+    ax1.set_yticklabels(quantiles)
+    ax1.invert_yaxis()
+
+    ax1.set_xlabel("Lead Time (ngày)")
+    ax1.set_title("A. Phân phối Lead Time dịch sau khi sửa múi giờ")
+    ax1.legend(fontsize=9)
+
+    ax1.text(
+        0.5,
+        -0.16,
+        "Mỗi quantile dịch ≈ 0,2917 ngày ≈ 7 giờ (pilot n=490).",
+        transform=ax1.transAxes,
+        ha="center",
+        fontsize=9
+    )
+
+    # =========================================================
+    # PANEL B — Kiểm chứng hai đồng hồ
+    # =========================================================
+    measured_offset = 7.0
+
+    ax2.scatter(
+        [measured_offset],
+        [0],
+        s=120,
+        zorder=3
+    )
+
+    ax2.axvline(
+        7,
+        linestyle="--",
+        linewidth=1.5
+    )
+
+    ax2.set_xlim(6.5, 7.5)
+    ax2.set_ylim(-0.7, 0.7)
+
+    ax2.set_yticks([])
+    ax2.set_xlabel("Độ lệch thời gian (giờ)")
+    ax2.set_title("B. Kiểm chứng \"hai đồng hồ\"")
+
+    ax2.text(
+        7,
+        0.32,
+        "7.0000 giờ",
+        ha="center",
+        fontsize=13,
+        fontweight="bold"
+    )
+
+    ax2.text(
+        7,
+        0.13,
+        "SD = 0.000000 giờ",
+        ha="center",
+        fontsize=10
+    )
+
+    ax2.text(
+        7,
+        -0.18,
+        "min = 7.0000 h\n"
+        "max = 7.0000 h\n"
+        "n = 200,290",
+        ha="center",
+        va="top",
+        fontsize=9
+    )
+
+    # =========================================================
+    # Tiêu đề chung
+    # =========================================================
+    fig.suptitle(
+        "Một API, hai đồng hồ: ảnh hưởng của sai lệch múi giờ",
+        fontsize=14,
+        y=0.97
+    )
+
+    fig.text(
+        0.5,
+        0.015,
+        "Timestamp dạng chuỗi và epoch UTC lệch nhau đúng 7 giờ; "
+        "sửa offset làm Lead Time giảm tương ứng khoảng 0,2917 ngày.",
+        ha="center",
+        fontsize=9
+    )
+
+    fig.subplots_adjust(
+        left=0.09,
+        right=0.97,
+        top=0.82,
+        bottom=0.20,
+        wspace=0.28
+    )
+
+    path = save_fig(fig, output)
+
+    result = pd.DataFrame({
+        "quantile": quantiles,
+        "before_days": before,
+        "after_days": after,
+        "shift_days": before - after
+    })
+
+    return fig, result, path
+
+def plot_n_vs_neff(
+    output: str = "B13_n_vs_neff.png"
+):
+    """So sánh số quan sát thô n và cỡ mẫu hiệu dụng n_eff qua 3 mẻ."""
+
+    result = pd.DataFrame({
+        "batch": [
+            "Mẻ ban đầu",
+            "Mẫu 117.819",
+            "Mẫu 203.510"
+        ],
+        "n": [
+            182,
+            258,
+            317
+        ],
+        "n_eff": [
+            25,
+            48,
+            85
+        ]
+    })
+
+    result["information_ratio"] = (
+        result["n_eff"] / result["n"] * 100
+    )
+
+    x = np.arange(len(result))
+    width = 0.32
+
+    fig, ax = plt.subplots(figsize=(10, 5.8))
+
+    # ---------------------------------------------------------
+    # Hai cột n và n_eff
+    # ---------------------------------------------------------
+    bars_n = ax.bar(
+        x - width / 2,
+        result["n"],
+        width,
+        label="n (số dòng)"
+    )
+
+    bars_neff = ax.bar(
+        x + width / 2,
+        result["n_eff"],
+        width,
+        label="n_eff (cỡ mẫu hiệu dụng)"
+    )
+
+    # ---------------------------------------------------------
+    # Ngưỡng mong manh
+    # ---------------------------------------------------------
+        # ---------------------------------------------------------
+    # Ngưỡng n_eff dùng để đánh dấu ước lượng mong manh
+    # ---------------------------------------------------------
+    ax.axhline(
+        y=100,
+        linestyle="--",
+        linewidth=1.5,
+        zorder=0
+    )
+
+    # Đặt chú thích ở vùng trống phía trên để không đè lên cột
+    ax.text(
+        0.985,
+        0.92,
+        "Ngưỡng mong manh\n$n_{eff}$ = 100",
+        transform=ax.transAxes,
+        ha="right",
+        va="top",
+        fontsize=9,
+        bbox=dict(
+            boxstyle="round,pad=0.3",
+            facecolor="white",
+            edgecolor="0.75",
+            alpha=0.9
+        )
+    )
+
+    # ---------------------------------------------------------
+    # Nhãn trên cột
+    # ---------------------------------------------------------
+    for bar in bars_n:
+        height = bar.get_height()
+
+        ax.annotate(
+            f"{int(height)}",
+            xy=(
+                bar.get_x() + bar.get_width() / 2,
+                height
+            ),
+            xytext=(0, 5),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+            fontweight="bold"
+        )
+
+    for bar, ratio in zip(
+        bars_neff,
+        result["information_ratio"]
+    ):
+        height = bar.get_height()
+
+        ax.annotate(
+            f"{int(height)}\n({ratio:.1f}% của n)",
+            xy=(
+                bar.get_x() + bar.get_width() / 2,
+                height
+            ),
+            xytext=(0, 12),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+            fontweight="bold"
+        )
+
+    # ---------------------------------------------------------
+    # Trục và tiêu đề
+    # ---------------------------------------------------------
+    ax.set_xticks(x)
+    ax.set_xticklabels(result["batch"])
+
+    ax.set_ylabel("Cỡ mẫu")
+    ax.set_title(
+        "Số dòng không đồng nghĩa với lượng thông tin hiệu dụng",
+        fontsize=14,
+        pad=15
+    )
+
+    ax.legend(
+        loc="upper left",
+        fontsize=9
+    )
+
+    ax.set_ylim(
+        0,
+        result["n"].max() * 1.22
+    )
+
+    # ---------------------------------------------------------
+    # Footnote
+    # ---------------------------------------------------------
+    fig.text(
+        0.5,
+        0.025,
+        "Cùng nhóm ước lượng qua ba mẻ dữ liệu: trọng số không đều làm "
+        "n_eff nhỏ hơn nhiều so với n; n_eff < 100 được đánh dấu là mong manh.",
+        ha="center",
+        fontsize=9
+    )
+
+    fig.subplots_adjust(
+        left=0.10,
+        right=0.97,
+        top=0.87,
+        bottom=0.17
+    )
+
+    path = save_fig(fig, output)
+
     return fig, result, path

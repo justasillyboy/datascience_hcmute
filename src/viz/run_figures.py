@@ -20,6 +20,8 @@ from src.viz.eda import (
     plot_rating_distribution,
     plot_rating_by_lead_time,
     plot_batch_forest,
+    plot_timezone_correction,
+    plot_n_vs_neff,
 )
 
 DATA_PATH = Path("data/processed/reviews_clean.parquet")
@@ -73,6 +75,20 @@ def main() -> None:
     print("\nB11 — Forest Plot độ ổn định kết luận chính")
     fig, result_b11, path = plot_batch_forest()
     print(result_b11.to_string(index=False))
+    print(f"Đã lưu: {path}")
+    plt.close(fig)
+    
+    # B12 - Timezone Correction
+    print("\nB12 — Trước/sau sửa múi giờ")
+    fig, result_b12, path = plot_timezone_correction()
+    print(result_b12.to_string(index=False))
+    print(f"Đã lưu: {path}")
+    plt.close(fig)
+    
+    # B13 - n vs n_eff
+    print("\nB13 — So sánh n và n_eff qua 3 mẻ")
+    fig, result_b13, path = plot_n_vs_neff()
+    print(result_b13.to_string(index=False))
     print(f"Đã lưu: {path}")
     plt.close(fig)
 
