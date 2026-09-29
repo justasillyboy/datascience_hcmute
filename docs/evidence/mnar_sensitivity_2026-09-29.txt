@@ -1,0 +1,97 @@
+# Độ nhạy MNAR — nguồn: data/processed/reviews_clean.parquet
+
+## A. Độ phủ nhãn
+
+  toàn mẫu phân tích được  thô 7.97%   trọng số 8.97%
+  kỷ nguyên 2023+ (67,773 dòng)  thô 23.34%   trọng số 25.73%
+
+          n  có_nhãn  % có nhãn
+nam                            
+2017    439        0       0.00
+2018    887        0       0.00
+2019   3269        0       0.00
+2020  18458        0       0.00
+2021  52584        0       0.00
+2022  54829        0       0.00
+2023  26591     4529      17.03
+2024  18369     5117      27.86
+2025  14458     3936      27.22
+2026   8355     2234      26.74
+
+  → Trước 2023 độ phủ đúng bằng 0: trường chưa tồn tại.
+    Đây là thiếu DO THIẾT KẾ, không phải chọn lọc — và không chặn được
+    bằng giả định, vì nhóm đó chưa bao giờ có cơ hội mang nhãn.
+
+## B. Chọn lọc thật nhỏ hơn vẻ ngoài
+
+  nhóm                              n   rating   lead TB   vượt SLA
+  -----------------------------------------------------------------
+  gộp có nhãn                  15,816    4.903      1.35      1.91%
+  gộp không nhãn              182,539    4.772      2.30      7.63%
+  kỷ nguyên có nhãn            15,816    4.903      1.35      1.91%
+  kỷ nguyên không nhãn         51,957    4.876      1.48      2.41%
+  trước kỷ nguyên             130,582    4.731      2.62      9.71%
+
+  Bội số 'vượt SLA' không-nhãn / có-nhãn:
+    so gộp             4.0×  ← phần lớn là hiệu ứng thời kỳ
+    so trong kỷ nguyên 1.3×  ← chọn lọc thật
+
+  Chênh rating: gộp +0.131 → trong kỷ nguyên +0.027
+
+
+## C. Chặn Manski — A1
+
+  Kỷ nguyên: 2023+
+  n phân tích được: 67,773
+  n có nhãn: 15,816
+  n không nhãn: 51,957
+  Tỷ trọng có nhãn: 25.73%
+
+  Manski lower bound: 0.48%
+  Manski upper bound: 74.75%
+  n_eff: 20076.10
+
+  Diễn giải:
+    Lower = mọi review không nhãn đều được giả định là không trễ.
+    Upper = mọi review không nhãn đều được giả định là trễ.
+
+======================================================================
+A2 — QUÉT ĐIỂM GÃY THETA
+======================================================================
+
+Kỷ nguyên: 2023+
+n phân tích được: 67,773
+n có nhãn: 15,816
+n không nhãn: 51,957
+
+p̄ = 0.018746
+
+p_MAR theo từng ô (rating × sla_breach):
+  rating=1, sla_breach=0 -> 0.114478
+  rating=1, sla_breach=1 -> 0.363636
+  rating=2, sla_breach=0 -> 0.028369
+  rating=2, sla_breach=1 -> 0.625000
+  rating=3, sla_breach=0 -> 0.085502
+  rating=3, sla_breach=1 -> 0.250000
+  rating=4, sla_breach=0 -> 0.029324
+  rating=4, sla_breach=1 -> 0.361395
+  rating=5, sla_breach=0 -> 0.014032
+  rating=5, sla_breach=1 -> 0.136107
+
+Điểm đầu/cuối:
+  θ = 0.000 -> -0.011407
+  θ = 1.000 -> +0.221720
+
+θ* = 0.046848
+Diễn giải:
+  Kết luận hiện hành chỉ sụp khi nhãn khách còn khoảng 4.68% thông tin so với MAR.
+  Tương đương phải kém hơn khoảng 95.32% so với giả định MAR.
+
+======================================================================
+A3 — SELF CHECK
+======================================================================
+FINDINGS.md : +0.208200
+theta_scan  : +0.208188
+sai khác    : -0.000012
+
+✅ A3 PASS — theta_scan tái lập kết luận chính.

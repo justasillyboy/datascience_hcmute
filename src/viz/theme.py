@@ -5,7 +5,10 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-FIGURE_DIR = Path("reports/figures")
+# Tuyệt đối theo vị trí file này, không theo thư mục đang chạy: Jupyter mặc định
+# chạy notebook trong `notebooks/`, đường dẫn tương đối sẽ ghi hình vào
+# `notebooks/reports/figures/` thay vì `reports/figures/`.
+FIGURE_DIR = Path(__file__).resolve().parents[2] / "reports" / "figures"
 
 # Màu mặc định theo thứ tự, không gắn ý nghĩa tốt/xấu vào màu.
 PALETTE = ["#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9", "#D55E00"]

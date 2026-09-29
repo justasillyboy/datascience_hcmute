@@ -67,6 +67,25 @@ EXPOST_PAIR = [("M8 · GBM tuned + tín hiệu khách (ex-post)", "M5 · GBM tun
 C9_SCHEME = "survey"
 REPORT_METRICS = ["pr_auc", "lift_pr_auc", "roc_auc", "brier_skill", "log_loss", "ece",
                   "precision@5%", "recall@5%", "p_mean", "prevalence", "n"]
+#: Phiên bản scikit-learn sinh ra kết quả chuẩn (FINDINGS §11, notebook 03, `*_tuned.json`).
+#: Cây (RF, HistGBM) đổi thuật toán giữa các phiên bản: ngày 2026-09-27 một lượt `make all`
+#: trên sklearn 1.9.1 đã cho bộ siêu tham số GBM khác và ghi đè kết quả chuẩn. Logistic
+#: thì trùng khớp tới 16 chữ số — đúng dấu hiệu của khác biệt cài đặt, không phải lỗi dữ liệu.
+PINNED_SKLEARN = "1.5.1"
+
+
+def check_sklearn_version(allow_other: bool) -> None:
+    """Dừng lại nếu phiên bản sklearn khác bản đã ghim — trừ khi người chạy cho phép rõ ràng."""
+    import sklearn
+
+    if sklearn.__version__ == PINNED_SKLEARN or allow_other:
+        return
+    raise SystemExit(
+        f"scikit-learn {sklearn.__version__} ≠ {PINNED_SKLEARN} (bản sinh ra kết quả chuẩn).\n"
+        f"Chạy tiếp sẽ ghi đè reports/models/ và docs/evidence/ bằng số khác.\n"
+        f"Cài đúng bản: pip install scikit-learn=={PINNED_SKLEARN}\n"
+        f"Hoặc cố ý so sánh giữa các phiên bản: thêm --allow-other-sklearn."
+    )
 
 
 class Log:
@@ -92,7 +111,10 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--n-iter", type=int, default=40, help="số cấu hình random search của GBM")
     ap.add_argument("--n-boot", type=int, default=1000, help="số lần bootstrap theo cụm")
     ap.add_argument("--use-cache", action="store_true", help="đọc mô hình đã tune nếu có")
+    ap.add_argument("--allow-other-sklearn", action="store_true",
+                    help=f"chạy dù scikit-learn khác bản ghim {PINNED_SKLEARN}")
     args = ap.parse_args(argv)
+    check_sklearn_version(args.allow_other_sklearn)
     warnings.filterwarnings("ignore", category=UserWarning)
     pd.set_option("display.width", 200)
     pd.set_option("display.float_format", lambda v: f"{v:.4f}")

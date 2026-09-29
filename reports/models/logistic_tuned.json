@@ -33,12 +33,12 @@
   "best_params": {
     "C": 1.879466824163847e-05
   },
-  "best_score_pr_auc_cv": 0.05662059766158067,
+  "best_score_pr_auc_cv": 0.05662059766158066,
   "tuning_space": {
-    "C": "<scipy.stats._distn_infrastructure.rv_continuous_frozen object at 0x000001120E862650>"
+    "C": "<scipy.stats._distn_infrastructure.rv_continuous_frozen object at 0x146448e90>"
   },
   "tuning_cv": "YearForwardSplit(val_years=(2022, 2023))",
   "n_candidates": 15,
-  "sklearn": "1.9.1",
-  "exported_at": "2026-09-27T23:47:24"
+  "sklearn": "1.5.1",
+  "exported_at": "2026-09-27T20:27:13"
 }

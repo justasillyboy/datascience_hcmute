@@ -141,7 +141,7 @@ so sánh trước/sau tương ứng.
 
 ## 4. Kết luận chính
 
-> **Nhãn khách hàng phân biệt mức hài lòng tốt hơn chỉ báo SLA — chênh lệch +0,2082 điểm rating, KTC 95% [0,097 · 0,353].** //QA cập nhật chênh lệch (ngày sửa đổi 26/09/2026)
+> **Nhãn khách hàng phân biệt mức hài lòng tốt hơn chỉ báo SLA — chênh lệch +0,2082 điểm rating, KTC 95% [0,097 · 0,353].**
 >
 > `n = 15.816 · n_eff = 4.689 · 1.916 cụm sản phẩm`
 
@@ -156,7 +156,7 @@ lòng ngang nhau. Thực tế nhãn khách mạnh hơn rõ rệt. **SLA đang đ
 
 |                          | Mẫu 66.851    | Mẫu 117.819     | + sửa múi giờ   | Mẫu 203.510         |
 | ------------------------ | ------------- | --------------- | --------------- | ------------------- |
-| Chênh lệch sức phân biệt | +0,209        | +0,241          | +0,234          | \*\*+0,2082         |
+| Chênh lệch sức phân biệt | +0,209        | +0,241          | +0,234          | **+0,2082**         |
 | KTC 95%                  | [0,06 · 0,44] | [0,129 · 0,398] | [0,113 · 0,393] | **[0,097 · 0,353]** |
 | `n_eff`                  | 1.019         | 1.960           | 1.960           | **4.689**           |
 
@@ -421,12 +421,19 @@ tuyệt đối".
 
 ## 7. Giới hạn phải khai báo
 
-**Nhãn khách hàng là MNAR (missing not at random).** Chỉ 7,9% review có nhãn (mẻ
-117.819: 9,8% — độ phủ tiếp tục giảm vì mẫu mở rộng nghiêng thêm về review cũ/5★,
-vốn ít được gắn nhãn hơn; vẫn trên ngưỡng cảnh báo 5% của data contract). Trường
-`delivery_rating` chỉ tồn tại từ 2023, và nhóm có nhãn giao nhanh hơn nhóm không
-nhãn. Vì vậy các ước lượng ở §4 là **ước lượng trên nhóm có nhãn**, không phải trên
-toàn quần thể. Thiên lệch còn lại nghiêng theo chiều làm giảm các tỉ lệ này.
+**Nhãn khách hàng thiếu theo HAI cơ chế, không phải một** (chi tiết + số: §9.3). Chỉ
+7,9% review có nhãn (mẻ 117.819: 9,8%), nhưng con số gộp đó trộn hai chuyện khác nhau:
+
+- **Thiếu do thiết kế** — trường `delivery_rating` chưa tồn tại trước 2023, độ phủ
+  đúng 0% ở mọi năm 2017–2022 (66% quần thể). Không giả định nào chặn được phần này:
+  nhóm đó chưa bao giờ có cơ hội mang nhãn. Hệ quả: **miền khái quát của §4 là kỷ
+  nguyên 2023–2026**, không phải toàn bộ 12 năm.
+- **Chọn lọc thật** — trong 2023+, 25,7% (có trọng số) có nhãn. Câu cũ "nhóm có nhãn
+  giao nhanh hơn" phóng đại: so gộp thì nhóm không nhãn vượt SLA gấp **4,0×**, so trong
+  cùng kỷ nguyên chỉ **1,3×**; chênh rating co từ +0,131 xuống +0,027.
+
+Phần chọn lọc thật đã được thử độ nhạy (§9.3): kết luận §4 chỉ đổi dấu nếu nhãn khách
+trong nhóm không nhãn mất hơn **95%** thông tin so với giả định MAR (θ\* = 0,047).
 
 **Không đại diện toàn thị trường.** Tiki thị phần nhỏ hơn Shopee đáng kể, thiên về
 hàng chính hãng, có logistics riêng → giao hàng tốt hơn mặt bằng chung. Kết quả vì
@@ -442,8 +449,7 @@ vùng miền của Olist.
 ## 8. Việc cần làm tiếp
 
 1. ~~Điều tra 1.157 dòng `lead_days` âm~~ — **xong**, §6.2 và §6.3.
-2. **Phân tích độ nhạy MNAR** — chặn trên/chặn dưới với giả định xấu nhất/tốt nhất
-   cho nhóm không có nhãn. Đây giờ là việc đáng làm nhất còn lại.
+2. ~~Phân tích độ nhạy MNAR~~ — **xong** (phương án B, không bootstrap quanh θ\*), §9.3.
 3. ~~Tăng `n_eff` cho hai ước lượng phụ~~ — **một nửa xong**: sau khi mở rộng mẫu
    lên 203.510 (nới `sample_cap`, không cào sản phẩm mới), "% đơn vượt SLA mà
    khách nói đúng hẹn" đã qua ngưỡng 100 (`n_eff = 130`). "% than phiền trễ hẹn từ
@@ -451,9 +457,75 @@ vùng miền của Olist.
    phàn nàn trễ vừa đơn nằm trong SLA), cần cào thêm sản phẩm sau 2023 (nơi nhãn
    tồn tại) mới đủ, tăng `sample_cap` thêm không giúp nhiều vì đã gần vét cạn tầng
    1–3★ ở các sản phẩm hiện có.
-4. **Phân rã theo ngành hàng và nhà bán** — bẫy SLA có đồng đều không?
-5. **Modeling** — dự đoán `is_low_rating`, thang baseline, ablation trên nhóm biến giao hàng.
-6. **Đối chiếu Olist** làm tham chiếu quốc tế (chỉ so sánh, không phải nguồn phân tích).
+4. ~~Phân rã theo ngành hàng và nhà bán~~ — **xong**, §9.4 và §11.6: không đủ dữ liệu
+   để kết luận nhóm nào tệ hơn.
+5. ~~Modeling~~ — **xong**, §11.
+6. **Đối chiếu Olist** làm tham chiếu quốc tế (chỉ so sánh, không phải nguồn phân tích)
+   — chưa làm, ưu tiên thấp nhất (D10).
+7. **A5 chưa đóng được**: phép dò `products/widget/delivery_info/{pid}` trả 404
+   `"just accept seller product"` ở cả 5 sản phẩm — thông báo này cho thấy request
+   thiếu tham số nhà bán, nên chưa đủ căn cứ để kết luận "Tiki không có SLA cấp sản
+   phẩm". Endpoint `products/{pid}` (task gốc) chưa được dò.
+
+## 9. Độ bền của kết luận chính — Track A
+
+> Kể chuyện đầy đủ + hình: `notebooks/02_chung_minh.ipynb` (chạy ~2,5 phút). Log:
+> `evidence/mnar_sensitivity_2026-09-29.txt`, `evidence/a6_sla_sensitivity.txt`,
+> `evidence/epoch_sensitivity`, `evidence/c15_category_decomposition.txt`.
+
+### 9.1 Tái lập từ dữ liệu thô — 3 mẻ × 2 đồng hồ
+
+Chạy lại **đúng pipeline hiện tại** (`clean_reviews` → `_power_gap` → bootstrap theo
+cụm, `N_BOOT=2000, seed=1`) trên dữ liệu thô của cả ba mẻ đã lưu trữ, với
+`VN_UTC_OFFSET` = 0h (code cũ) và 7h (đã sửa):
+
+| Mẻ | Đồng hồ cũ (lệch 7h) | Đồng hồ đã sửa |
+|---|---|---|
+| 66.851 | **+0,2095** [0,064 · 0,437] | +0,1744 [0,024 · 0,411] |
+| 117.819 | **+0,2413** [0,129 · 0,398] | **+0,2344** [0,113 · 0,393] |
+| 203.510 | +0,2122 [0,103 · 0,357] | **+0,2082** [0,097 · 0,353] |
+
+Bốn ô in đậm là 4 con số đã công bố ở §4 — **tái lập đúng tới 3–4 chữ số**, tức không
+có số nào trong tài liệu bị chép tay sai. Hai ô còn lại chưa từng được báo cáo; cả sáu
+KTC đều không chứa 0.
+
+### 9.2 Ngưỡng SLA và kỷ nguyên (A6, A7)
+
+| Ngưỡng SLA | % đơn vượt SLA | Chênh lệch | KTC 95% |
+|---|---|---|---|
+| 3 ngày | 19,52% | +0,237 | [0,140 · 0,377] |
+| 4 ngày | 11,71% | +0,200 | [0,097 · 0,339] |
+| **5 ngày** | **7,12%** | **+0,208** | **[0,097 · 0,353]** |
+| 6 ngày | 4,85% | +0,180 | [0,049 · 0,348] |
+| 7 ngày | 3,74% | +0,156 | [0,008 · 0,331] |
+
+Kết luận dương ở mọi ngưỡng 3–7 ngày, không KTC nào chứa 0; ở 7 ngày cận dưới sát 0
+(0,008) — ngưỡng càng lỏng thì nhóm "vượt SLA" chỉ còn đơn thật sự rất trễ nên chỉ báo
+SLA bám rating tốt hơn một chút. `n_eff` trong log A6 (53.973) là của toàn mẫu; `n_eff`
+đúng của tập ước lượng là 4.689.
+
+A7 (toàn mẫu · bỏ 2021 · 2022+ · 2023+) cho **đúng cùng một con số +0,2082** ở cả 4 lát
+— không phải lỗi code: 15.816/15.816 review có nhãn nằm ở 2023+, nên cắt các năm trước
+2023 không chạm vào tập ước lượng. Đây là bằng chứng cho D1: kết luận chính chưa bao giờ
+dùng dữ liệu 2021.
+
+### 9.3 Độ nhạy MNAR (A1–A3, phương án B)
+
+- **Chặn Manski** cho tỉ lệ "khách nói trễ" trong 2023+: **[0,48% · 74,75%]** — rộng
+  đến vô dụng như đã dự đoán (74% dòng không nhãn). Ghi chú: chặn này đặt trên tỉ lệ
+  "trễ", chưa đặt trực tiếp trên chênh lệch sức phân biệt.
+- **Quét điểm gãy θ** (`p_i(θ) = θ·p_MAR(rating × vượt SLA) + (1−θ)·p̄`, trọng số phân
+  đoạn): θ = 1 (MAR) → **+0,2217**; θ = 0 → −0,0114; **θ\* = 0,0468**. Kết luận chỉ đổi
+  dấu nếu nhãn khách trong nhóm không nhãn mất hơn **95%** thông tin so với MAR.
+- **Tự kiểm A3**: `theta_scan` trên riêng nhóm có nhãn với `p` = nhãn thật cho
+  +0,208188, lệch −0,000012 so với §4 → hàm tính đúng.
+
+### 9.4 Phân rã theo ngành (C15)
+
+Gộp 10 ngành còn 3 nhóm; ô "trong SLA · khách trễ" chỉ có `n_eff` 46 / 20 / 13 và ô
+"vượt SLA · khách đúng hẹn" 61 / 54 / 36 — **cả ba nhóm đều dưới cổng `n_eff ≥ 100`**.
+Không xếp hạng ngành. Cùng kết luận với §11.6 (Tiki Trading vs bên thứ ba): bẫy SLA tồn
+tại ở mọi nhóm, dữ liệu không đủ để nói nhóm nào tệ hơn.
 
 ## 10. Thư viện hình EDA
 
@@ -481,6 +553,14 @@ Các hình dưới đây được sinh từ `src/viz/` và được sử dụng 
 - `B13_n_vs_neff.png` → `n_eff` nhỏ hơn đáng kể so với số quan sát `n`; ở nhóm ước lượng mong manh, số dòng lớn không đồng nghĩa với lượng thông tin hiệu dụng lớn.
 
 - `B14_Customer-Reported Delivery Label Coverage by Year.png` → Customer-Reported Delivery Label gần như không tồn tại trước năm 2023 và chỉ có độ phủ hạn chế từ 2023 trở đi, vì vậy các phân tích phụ thuộc nhãn cần lưu ý missingness và selection bias.
+
+- `A01_forest_tai_lap.png` → Kết luận chính **tính lại từ dữ liệu thô** của 3 mẻ × 2 đồng hồ; 4 số đã công bố trùng khớp, 6/6 KTC không chứa 0 (thay cho B11 vốn gõ tay số liệu).
+
+- `A02_hai_dong_ho.png` → Độ lệch hai đồng hồ **đo trên 200.307 review** — đúng 7,0000 giờ, SD = 0; phân phối lead time dịch 0,2917 ngày (thay cho B12, vốn dựng từ số pilot gõ tay).
+
+- `A03_nguong_sla.png` → Kết luận dương ở mọi ngưỡng SLA 3–7 ngày, KTC không chứa 0 (sát 0 ở 7 ngày).
+
+- `A04_diem_gay_theta.png` → Điểm gãy MNAR θ\* = 0,047: kết luận chỉ đổi dấu khi nhãn khách mất >95% thông tin trong nhóm không nhãn.
 
 - `B19_seller_sla_trap.png` → Cả Tiki Trading và bên thứ ba đều thể hiện mức bất đồng đáng kể giữa SLA và cảm nhận giao hàng của khách hàng; tuy các tỷ lệ quan sát được khác nhau, 95% CI của cả hai chênh lệch đều chứa 0 nên chưa đủ bằng chứng thống kê để kết luận mức độ bẫy SLA khác nhau giữa hai nhóm nhà bán.
 

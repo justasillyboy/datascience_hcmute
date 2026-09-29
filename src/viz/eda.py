@@ -341,8 +341,16 @@ def plot_lead_days_quantiles(
     return fig, result, path
 
 
-def plot_sla_by_year(df: pd.DataFrame, output: str = "B07_sla_by_year.png"):
-    """Tỷ lệ vượt SLA theo năm, có trọng số và ghi n."""
+def plot_sla_by_year(
+    df: pd.DataFrame,
+    output: str = "B07_sla_by_year.png",
+    min_rows: int = 200,
+):
+    """Tỷ lệ vượt SLA theo năm, có trọng số và ghi n.
+
+    Năm có ít hơn `min_rows` dòng bị ẩn (cùng ngưỡng với bảng FINDINGS §2): 2015 chỉ
+    46 dòng mà cột 40% sẽ chiếm trọn trục y và át mất tín hiệu thật của 2021.
+    """
     d = df[df["is_analysable"]].copy()
     d["year"] = pd.to_datetime(d["review_ts"]).dt.year
     rows = []
@@ -353,6 +361,12 @@ def plot_sla_by_year(df: pd.DataFrame, output: str = "B07_sla_by_year.png"):
             "n": len(g),
         })
     result = pd.DataFrame(rows)
+    hidden = result[result["n"] < min_rows]
+    result = result[result["n"] >= min_rows].reset_index(drop=True)
+    hidden_note = (
+        f" (ẩn {', '.join(map(str, hidden['year']))}: tổng {int(hidden['n'].sum()):,} dòng)"
+        if len(hidden) else ""
+    )
     fig, ax = plt.subplots(figsize=(10, 5.5))
     bars = ax.bar(result["year"], result["breach_pct"])
     ax.set_xlabel("Năm")
@@ -392,7 +406,7 @@ def plot_sla_by_year(df: pd.DataFrame, output: str = "B07_sla_by_year.png"):
     fig.text(
     0.5,
     0.01,
-    "Lưu ý: các năm đầu có sample size nhỏ; SLA Breach Rate được tính có trọng số.",
+    f"SLA Breach Rate có trọng số · chỉ hiện năm có n ≥ {min_rows}{hidden_note}.",
     ha="center",
     fontsize=9
     )
