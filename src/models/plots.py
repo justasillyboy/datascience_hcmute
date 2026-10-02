@@ -245,3 +245,90 @@ def plot_line(df: pd.DataFrame, x: str, y: str, title: str, xlabel: str, ylabel:
     ax.set_title(title)
     fig.tight_layout()
     return fig
+
+
+def plot_class_balance(table: pd.DataFrame) -> plt.Figure:
+    """Tỉ lệ lớp dương theo từng tập: mẫu thô vs quần thể (có trọng số), kèm tỉ lệ âm:dương."""
+    fig, ax = plt.subplots(figsize=(7.2, 3.6))
+    x = np.arange(len(table))
+    for j, (col, label) in enumerate((("tỉ_lệ_thô", "mẫu thô (đếm dòng)"),
+                                      ("tỉ_lệ_quần_thể", "quần thể (nhân trọng số w)"))):
+        bars = ax.bar(x + (j - 0.5) * 0.36, table[col] * 100, width=0.34, color=SERIES[j], label=label)
+        ax.bar_label(bars, labels=[f"{v:.2%}".replace(".", ",") for v in table[col]],
+                     padding=2, fontsize=9, color=TEXT)
+    ax.set_xticks(x, [f"{name}\nâm : dương ≈ {r:.0f} : 1" for name, r
+                      in zip(table.index, table["âm_trên_dương_quần_thể"])])
+    ax.set_ylabel("% review ≤3★ (lớp dương)")
+    ax.set_ylim(0, table[["tỉ_lệ_thô", "tỉ_lệ_quần_thể"]].to_numpy().max() * 100 * 1.25)
+    ax.legend(loc="upper right", fontsize=9)
+    ax.set_title("Lớp dương hiếm: mất cân bằng nặng, và nặng hơn ở tập test")
+    fig.tight_layout()
+    return fig
+
+
+def _tick(v) -> str:
+    """Nhãn trục gọn: 0.0001 → '1e-4', 200.0 → '200', chuỗi giữ nguyên."""
+    if not isinstance(v, (int, float, np.number)):
+        return str(v)
+    if 0 < abs(v) < 0.01:
+        mant, exp = f"{v:.0e}".split("e")
+        return f"{mant}e{int(exp)}"
+    return f"{v:g}"
+
+
+def _ordered(values: Sequence) -> list:
+    """Thứ tự trục x của một siêu tham số: số → tăng dần; chữ → 'None' trước rồi theo ABC."""
+    uniq = list(dict.fromkeys(values))
+    try:
+        return sorted(uniq, key=float)
+    except (TypeError, ValueError):
+        return sorted(uniq, key=lambda v: (str(v) != "None", str(v)))
+
+
+def plot_validation_curves(slices: Mapping[str, Mapping[str, pd.DataFrame]],
+                           best_overall: str | None = None,
+                           panel_size: tuple[float, float] = (3.0, 2.5),
+                           font_scale: float = 1.0) -> plt.Figure:
+    """Validation curve đọc từ lưới GridSearchCV: mỗi hàng một họ estimator, mỗi ô một siêu tham số.
+
+    Đường = PR-AUC trung bình 2 fold khi chỉ đổi tham số đó (các tham số khác giữ ở cấu hình
+    thắng của họ); chấm cam = giá trị được chọn. Các ô cùng hàng **chung trục y**, nên ô nào
+    phẳng là tham số đó gần như không ảnh hưởng, ô nào dốc là tham số quyết định.
+
+    `panel_size` nhỏ + `font_scale` > 1 cho bản chiếu slide: hình bị thu nhỏ khi đặt vào
+    slide nên chữ cỡ mặc định (8–10pt) chỉ còn ~5pt trên màn chiếu.
+    """
+    slices = {fam: s for fam, s in slices.items() if s}
+    n_cols = max(len(s) for s in slices.values())
+    fig, axes = plt.subplots(len(slices), n_cols,
+                             figsize=(panel_size[0] * n_cols, panel_size[1] * len(slices)),
+                             squeeze=False)
+    for i, (family, fam_slices) in enumerate(slices.items()):
+        scores = np.concatenate([d["mean_test_score"].to_numpy() for d in fam_slices.values()])
+        pad = 0.08 * (scores.max() - scores.min() + 1e-4)
+        for j in range(n_cols):
+            ax = axes[i, j]
+            if j >= len(fam_slices):
+                ax.set_axis_off()
+                continue
+            prm, d = list(fam_slices.items())[j]
+            d = d.set_index(prm).loc[_ordered(d[prm].tolist())].reset_index()
+            x = np.arange(len(d))
+            ax.plot(x, d["mean_test_score"], color=SERIES[0], marker="o", markersize=5, zorder=3)
+            k = int(d["mean_test_score"].to_numpy().argmax())
+            _dot(ax, [x[k]], [d["mean_test_score"].iloc[k]], SERIES[1], zorder=4)
+            ax.set_xticks(x, [_tick(v) for v in d[prm]], fontsize=8 * font_scale)
+            if font_scale != 1.0:
+                ax.tick_params(axis="y", labelsize=8 * font_scale)
+            ax.set_xlim(-0.4, len(d) - 0.6)
+            ax.set_ylim(scores.min() - pad, scores.max() + pad)
+            ax.set_title(prm, fontsize=9 * font_scale, loc="left")
+            if j == 0:
+                star = " ★" if family == best_overall else ""
+                ax.set_ylabel(f"{family}{star}\nPR-AUC CV", fontsize=9 * font_scale)
+            else:
+                ax.tick_params(axis="y", labelleft=False)
+    fig.suptitle("Đổi một siêu tham số, giữ các tham số khác ở cấu hình thắng (cam = được chọn)",
+                 x=0.01, ha="left", fontweight="bold", color=TEXT, fontsize=10 * font_scale)
+    fig.tight_layout()
+    return fig

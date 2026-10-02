@@ -656,3 +656,28 @@ cùng kết luận với §4, bằng phương pháp độc lập.
 
 Δ báo động giả = −0,068 [−0,176; 0,023] · Δ bỏ sót = +0,116 [−0,021; 0,242] — **cả hai KTC chứa 0**.
 Không trích như một phát hiện.
+
+### 11.7 GridSearchCV trên Pipeline — cân bằng lớp, estimator, vì sao chọn tham số (2026-10-01)
+
+Nguồn: `python -m src.models.run_grid_search` · `docs/evidence/c_gridsearch_2026-10-01.txt` · notebook `04_gridsearch_pipeline.ipynb`.
+
+**Cân bằng lớp.** Low Rating (≤3★) = 4,45% quần thể train (âm : dương ≈ 21 : 1), 1,68% test (≈ 59 : 1); val 2022 / 2023
+= 34 : 1 / 50 : 1 — mất cân bằng tăng dần theo năm. Tỉ lệ thô (9,63% train) gấp đôi tỉ lệ thật do thiết kế lấy mẫu.
+Mô hình "luôn đoán không" đạt accuracy 98,3% trên test. Xử lý bằng `class_weight` (siêu tham số do CV chọn), không resample.
+
+**Một GridSearchCV** trên `Pipeline([("prep", ColumnTransformer), ("model", estimator)])`, estimator là một khoá của lưới:
+120 cấu hình × 2 fold theo năm = 240 lần fit (15,5 phút), PR-AUC có trọng số khảo sát.
+
+| Estimator | Cấu hình thắng | PR-AUC CV | PR-AUC test | 5 seed (test) |
+|---|---|---|---|---|
+| LogisticRegression | `C=1e-4`, `class_weight={1: 21,5}`, impute mean | 0,0569 | 0,0635 | 0,0635 ± 0,0000 |
+| RandomForestClassifier | `min_samples_leaf=200`, `max_features="sqrt"`, `{1: 21,5}` | 0,0570 | 0,0634 | 0,0634 ± 0,0006 |
+| HistGradientBoostingClassifier | 4 lá, `min_samples_leaf=400`, lr 0,03, `"balanced"` | **0,0582** | 0,0562 | 0,0548 ± 0,0016 |
+
+* Lượt đầu có 3 tham số thắng ở **mép lưới** (`C=1e-4`, RF `min_samples_leaf=200`, GBM 8 lá) → mở rộng lưới, chạy lại.
+  Lượt hai: `C` và RF `min_samples_leaf` có đỉnh **giữa** lưới; GBM 4 lá vẫn ở mép nhưng 4 ≈ 8 lá (chênh 0,0004 ≪ chênh
+  lệch giữa hai fold 0,0074), còn 31 lá quá khớp rõ (train 0,21, CV 0,056).
+* Tham số cấu trúc thắng ở **cả hai** fold 2022 và 2023. Không cân lớp (`None`) thua ở cả ba họ (−0,0005 → −0,0009).
+* GBM thắng CV nhưng thấp nhất trên test và dao động seed lớn nhất — cùng hiện tượng với M5 ở §11.3, củng cố lý do chốt
+  ensemble M7. Mô hình chốt **không đổi**; logistic/RF của GridSearch đạt cùng mức với M2/M7 (~0,063) → kết luận không
+  phụ thuộc cách tune.

@@ -1,0 +1,111 @@
+
+==============================================================================
+1 · Dữ liệu có cân bằng không? (lớp dương = review ≤3★)
+==============================================================================
+                     n  n_dương  tỉ_lệ_thô  tỉ_lệ_quần_thể  âm_trên_dương_quần_thể
+train ≤2023     157173    15132     0.0963          0.0445                 21.4808
+test 2024–2026   41182     1465     0.0356          0.0168                 58.5507
+CV val 2022      54829     3614     0.0659          0.0283                 34.2825
+CV val 2023      26591     1204     0.0453          0.0195                 50.2821
+
+==============================================================================
+2 · Pipeline = tiền xử lý + estimator; siêu tham số gọi bằng `bước__tham_số`
+==============================================================================
+Pipeline(steps=[('prep',
+                 ColumnTransformer(transformers=[('num',
+                                                  Pipeline(steps=[('impute',
+                                                                   SimpleImputer(add_indicator=True,
+                                                                                 strategy='median')),
+                                                                  ('scale',
+                                                                   StandardScaler())]),
+                                                  ['lead_days',
+                                                   'delivered_hour',
+                                                   'delivered_weekend',
+                                                   'purchase_month',
+                                                   'purchase_weekday',
+                                                   'purchase_hour',
+                                                   'is_tiki_trading',
+                                                   'log_price', 'discount_rate',
+                                                   'prod_hist_n',
+                                                   'prod_hist_rate',
+                                                   'seller_hist_n',
+                                                   'seller_hist_rate',
+                                                   'cust_tenure_days',
+                                                   'cust_hist_n',
+                                                   'cust_hist_rate']),
+                                                 ('cat',
+                                                  OneHotEncoder(handle_unknown='ignore',
+                                                                sparse_output=False),
+                                                  ['category'])])),
+                ('model', LogisticRegression(max_iter=2000))])
+Một số khoá hợp lệ: prep__num__impute__strategy, prep__num__scale__with_mean, prep__cat__handle_unknown, model__C, model__class_weight
+
+==============================================================================
+3 · GridSearchCV: 3 họ estimator × lưới riêng × 2 fold theo năm
+==============================================================================
+120 cấu hình × 2 fold = 240 lần fit · 15.5 phút
+best_params_ = {'model': 'HistGradientBoostingClassifier', 'model__class_weight': 'balanced', 'model__learning_rate': 0.03, 'model__max_leaf_nodes': 4, 'model__min_samples_leaf': 400}
+best_score_ (PR-AUC CV, lạc quan vì là max của 120 ước lượng) = 0.0582
+
+--- Logistic: 5 cấu hình tốt nhất
+    rank  model__C model__class_weight prep__num__impute__strategy  mean_test_score  std_test_score  split0_test_score  split1_test_score  mean_train_score  mean_fit_time  rank_trong_họ
+27    28    0.0001              1:21.5                        mean           0.0569          0.0062             0.0631             0.0506            0.1457         0.2058              1
+28    29    0.0001              1:21.5                      median           0.0567          0.0061             0.0629             0.0506            0.1457         0.3478              2
+31    32    0.0010                None                        mean           0.0566          0.0061             0.0627             0.0506            0.1466         0.1395              3
+32    33    0.0010                None                      median           0.0566          0.0061             0.0626             0.0505            0.1466         0.3301              4
+33    34    0.0001            balanced                        mean           0.0566          0.0060             0.0626             0.0506            0.1450         0.1471              5
+
+--- RandomForest: 5 cấu hình tốt nhất
+    rank model__class_weight model__max_features  model__min_samples_leaf  mean_test_score  std_test_score  split0_test_score  split1_test_score  mean_train_score  mean_fit_time  rank_trong_họ
+22    23              1:21.5                sqrt                 200.0000           0.0570          0.0082             0.0652             0.0488            0.1820         3.6989              1
+29    30  balanced_subsample                sqrt                 200.0000           0.0567          0.0080             0.0647             0.0487            0.1817         4.9123              2
+37    38                None                sqrt                 200.0000           0.0565          0.0075             0.0640             0.0489            0.1799         4.5315              3
+51    52  balanced_subsample              0.5000                 200.0000           0.0558          0.0073             0.0631             0.0485            0.1881         9.6253              4
+52    53              1:21.5              0.5000                 800.0000           0.0558          0.0081             0.0639             0.0476            0.1581         6.2137              5
+
+--- HistGBM: 5 cấu hình tốt nhất
+   rank model__class_weight  model__min_samples_leaf  model__learning_rate  model__max_leaf_nodes  mean_test_score  std_test_score  split0_test_score  split1_test_score  mean_train_score  mean_fit_time  rank_trong_họ
+0     1            balanced                 400.0000                0.0300                 4.0000           0.0582          0.0074             0.0657             0.0508            0.1701         7.8782              1
+1     2              1:21.5                 400.0000                0.0300                 4.0000           0.0580          0.0071             0.0651             0.0509            0.1661         6.8646              2
+2     3            balanced                 400.0000                0.1000                 4.0000           0.0579          0.0075             0.0654             0.0504            0.1711         2.8740              3
+3     4              1:21.5                 400.0000                0.1000                 4.0000           0.0579          0.0072             0.0651             0.0507            0.1661         2.7135              4
+4     5            balanced                  20.0000                0.0300                 8.0000           0.0579          0.0076             0.0655             0.0503            0.1793         5.1015              5
+
+==============================================================================
+4 · Vì sao chọn giá trị này — validation curve đọc từ lưới
+==============================================================================
+Logistic     model__C                       0.0001: 0.0569 · 0.001: 0.0561 · 1e-05: 0.0560 · 0.01: 0.0554 · 0.1: 0.0553 · 1.0: 0.0553 · 1e-06: 0.0545
+Logistic     model__class_weight            1:21.5: 0.0569 · balanced: 0.0566 · None: 0.0560
+Logistic     prep__num__impute__strategy    mean: 0.0569 · median: 0.0567
+RandomForest model__class_weight            1:21.5: 0.0570 · balanced_subsample: 0.0567 · None: 0.0565
+RandomForest model__max_features            sqrt: 0.0570 · 0.5: 0.0557
+RandomForest model__min_samples_leaf        200.0: 0.0570 · 800.0: 0.0557 · 2000.0: 0.0549 · 50.0: 0.0543
+HistGBM      model__class_weight            balanced: 0.0582 · 1:21.5: 0.0580 · None: 0.0575
+HistGBM      model__min_samples_leaf        400.0: 0.0582 · 20.0: 0.0574 · 100.0: 0.0573
+HistGBM      model__learning_rate           0.03: 0.0582 · 0.1: 0.0579
+HistGBM      model__max_leaf_nodes          4.0: 0.0582 · 8.0: 0.0578 · 31.0: 0.0559
+
+==============================================================================
+5 · Chấm test 2024–2026 MỘT lần cho cấu hình thắng của từng họ
+==============================================================================
+              pr_auc  lift_pr_auc  roc_auc  precision@5%  recall@5%  p_mean  prevalence
+họ                                                                                     
+Logistic      0.0635       3.7819   0.7466        0.0784     0.2334  0.2816      0.0168
+RandomForest  0.0634       3.7766   0.7641        0.0851     0.2532  0.2568      0.0168
+HistGBM       0.0562       3.3461   0.7558        0.0711     0.2116  0.1607      0.0168
+
+==============================================================================
+6 · Train lại 5 lần với 5 seed — kết quả có ổn định?
+==============================================================================
+họ    HistGBM  Logistic  RandomForest
+seed                                 
+0      0.0542    0.0635        0.0634
+1      0.0540    0.0635        0.0635
+2      0.0561    0.0635        0.0636
+3      0.0568    0.0635        0.0640
+4      0.0528    0.0635        0.0625
+               mean    std    min    max
+họ                                      
+Logistic     0.0635 0.0000 0.0635 0.0635
+RandomForest 0.0634 0.0006 0.0625 0.0640
+HistGBM      0.0548 0.0016 0.0528 0.0568

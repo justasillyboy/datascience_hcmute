@@ -14,7 +14,8 @@ from src.viz.theme import PALETTE, save_fig
 from src.viz.weighted import weighted_box
 
 
-def plot_sla_2x2(df: pd.DataFrame, output: str = "B10_SLA Status vs. Customer-Reported Delivery Status.png"):
+def plot_sla_2x2(df: pd.DataFrame, output: str = "B10_SLA Status vs. Customer-Reported Delivery Status.png",
+                 figsize: tuple[float, float] = (9, 5.5)):
     """Heatmap 2x2 của SLA status × customer_says_late.
 
     Đây là **số dòng mẫu có nhãn**, không phải ước lượng quần thể. Hình ghi rõ
@@ -28,7 +29,7 @@ def plot_sla_2x2(df: pd.DataFrame, output: str = "B10_SLA Status vs. Customer-Re
         pd.Categorical(customer_label, categories=["On-time", "Late"]),
     ).reindex(index=["Within SLA", "SLA Breach"], columns=["On-time", "Late"], fill_value=0)
 
-    fig, ax = plt.subplots(figsize=(9, 5.5))
+    fig, ax = plt.subplots(figsize=figsize)
     im = ax.imshow(table.to_numpy(), aspect="auto", cmap="Blues",
     norm=LogNorm(
         vmin=table.to_numpy().min(),
@@ -42,8 +43,11 @@ def plot_sla_2x2(df: pd.DataFrame, output: str = "B10_SLA Status vs. Customer-Re
     for i in range(2):
         for j in range(2):
             value = int(table.iloc[i, j])
-            weight = "Mismatch" if (i, j) in [(0, 1), (1, 0)] else ""
-            ax.text(j, i, f"{value:,}\n{weight}", ha="center", va="center", fontsize=13)
+            label = f"{value:,}\nMismatch" if (i, j) in [(0, 1), (1, 0)] else f"{value:,}"
+            # Ô càng nhiều dòng càng đậm (log) — chữ đen trên ô xanh đậm gần như không đọc được.
+            r, g, b, _ = im.cmap(im.norm(value))
+            color = "white" if 0.299 * r + 0.587 * g + 0.114 * b < 0.5 else "black"
+            ax.text(j, i, label, ha="center", va="center", fontsize=13, color=color)
     
     total = int(table.to_numpy().sum())
     fig.text(0.5, 0.01, f"Sample size: n = {total:,} labeled reviews · Values show observed review counts (unweighted).", ha="center", fontsize=10)

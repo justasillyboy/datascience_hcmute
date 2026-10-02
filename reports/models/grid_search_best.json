@@ -1,0 +1,39 @@
+{
+  "best_overall": {
+    "model": "HistGradientBoostingClassifier",
+    "model__class_weight": "balanced",
+    "model__learning_rate": 0.03,
+    "model__max_leaf_nodes": 4,
+    "model__min_samples_leaf": 400
+  },
+  "best_score_cv": 0.05824301033715178,
+  "best_by_family": {
+    "Logistic": {
+      "model": "LogisticRegression",
+      "model__C": 0.0001,
+      "model__class_weight": {
+        "0": 1.0,
+        "1": 21.5
+      },
+      "prep__num__impute__strategy": "mean"
+    },
+    "RandomForest": {
+      "model": "RandomForestClassifier",
+      "model__class_weight": {
+        "0": 1.0,
+        "1": 21.5
+      },
+      "model__max_features": "sqrt",
+      "model__min_samples_leaf": 200
+    },
+    "HistGBM": {
+      "model": "HistGradientBoostingClassifier",
+      "model__class_weight": "balanced",
+      "model__learning_rate": 0.03,
+      "model__max_leaf_nodes": 4,
+      "model__min_samples_leaf": 400
+    }
+  },
+  "cv": "YearForwardSplit(val_years=(2022, 2023))",
+  "n_candidates": 120
+}
