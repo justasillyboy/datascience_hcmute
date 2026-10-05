@@ -133,6 +133,35 @@ def param_grid(pos_weight: float) -> list[dict[str, list]]:
     ]
 
 
+def quick_param_grid(pos_weight: float) -> list[dict[str, list]]:
+    """Lưới rút gọn (10 cấu hình) quanh vùng thắng của `param_grid` — chạy vài phút thay vì ~20.
+
+    Dùng để trình diễn GridSearchCV từ đầu tới cuối (`python main.py --search quick`);
+    mỗi tham số vẫn có giá trị hai bên cấu hình thắng để đọc được hướng của đường CV.
+    """
+    population = {0: 1.0, 1: float(pos_weight)}
+    return [
+        {
+            "model": [LogisticRegression(max_iter=2000)],
+            "model__C": [1e-5, 1e-4, 1e-3],
+            "model__class_weight": [None, population],
+        },
+        {
+            "model": [RandomForestClassifier(n_estimators=100, n_jobs=-1, random_state=SEED)],
+            "model__min_samples_leaf": [200, 800],
+            "model__class_weight": [population],
+        },
+        {
+            "model": [HistGradientBoostingClassifier(max_iter=2000, early_stopping=True,
+                                                     n_iter_no_change=30, random_state=SEED)],
+            "model__learning_rate": [0.1],
+            "model__max_leaf_nodes": [4, 8],
+            "model__min_samples_leaf": [400],
+            "model__class_weight": ["balanced"],
+        },
+    ]
+
+
 # --------------------------------------------------------------------- trọng số & thước đo
 
 
@@ -206,6 +235,19 @@ def _label(value: Any) -> Any:
     if isinstance(value, Mapping):
         return f"1:{value[1]:g}"
     return value
+
+
+def jsonable_params(params: Mapping[str, Any]) -> dict[str, Any]:
+    """Bộ siêu tham số (có estimator, dict class_weight, số numpy) → dict ghi được ra JSON."""
+    out: dict[str, Any] = {}
+    for k, v in params.items():
+        if k == "model":
+            out[k] = type(v).__name__
+        elif isinstance(v, Mapping):
+            out[k] = {str(c): float(w) for c, w in v.items()}
+        else:
+            out[k] = v.item() if isinstance(v, np.generic) else v
+    return out
 
 
 def results_table(search: GridSearchCV) -> pd.DataFrame:

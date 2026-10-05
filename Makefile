@@ -1,6 +1,6 @@
 PYTHON := python
 
-.PHONY: all clean analysis mnar sensitivity figures model gridsearch test
+.PHONY: all clean analysis mnar sensitivity figures model gridsearch test run submission
 
 all: clean analysis mnar sensitivity figures model gridsearch test
 
@@ -27,3 +27,9 @@ gridsearch:
 
 test:
 	$(PYTHON) -m pytest
+
+run:
+	$(PYTHON) main.py
+
+submission:
+	$(PYTHON) scripts/make_submission.py

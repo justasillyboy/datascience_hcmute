@@ -27,7 +27,6 @@ import warnings
 from datetime import date
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from sklearn.base import clone
 
@@ -40,6 +39,7 @@ from .grid_search import (
     CV,
     best_params_by_family,
     class_balance_table,
+    jsonable_params,
     make_pipeline,
     normalized_survey_weights,
     results_table,
@@ -52,18 +52,6 @@ from .run_modeling import Log, check_sklearn_version
 
 FAMILIES = ("Logistic", "RandomForest", "HistGBM")
 TEST_METRICS = ["pr_auc", "lift_pr_auc", "roc_auc", "precision@5%", "recall@5%", "p_mean", "prevalence"]
-
-
-def _jsonable_params(params: dict) -> dict:
-    out = {}
-    for k, v in params.items():
-        if k == "model":
-            out[k] = type(v).__name__
-        elif isinstance(v, dict):
-            out[k] = {str(c): float(w) for c, w in v.items()}
-        else:
-            out[k] = v.item() if isinstance(v, np.generic) else v
-    return out
 
 
 def balance_sets(train: pd.DataFrame, test: pd.DataFrame) -> dict[str, pd.DataFrame]:
@@ -125,7 +113,7 @@ def main(argv: list[str] | None = None) -> None:
     table.to_csv(ARTIFACT_DIR / "grid_search_cv.csv", index=False)
     log(f"{len(table)} cấu hình × {CV.get_n_splits()} fold = {len(table) * CV.get_n_splits()} lần fit "
         f"· {minutes:.1f} phút")
-    log(f"best_params_ = {_jsonable_params(search.best_params_)}")
+    log(f"best_params_ = {jsonable_params(search.best_params_)}")
     log(f"best_score_ (PR-AUC CV, lạc quan vì là max của {len(table)} ước lượng) = {search.best_score_:.4f}")
     for fam in FAMILIES:
         log(f"\n--- {fam}: 5 cấu hình tốt nhất")
@@ -134,9 +122,9 @@ def main(argv: list[str] | None = None) -> None:
 
     best = best_params_by_family(search)
     (ARTIFACT_DIR / "grid_search_best.json").write_text(json.dumps(
-        {"best_overall": _jsonable_params(search.best_params_),
+        {"best_overall": jsonable_params(search.best_params_),
          "best_score_cv": search.best_score_,
-         "best_by_family": {f: _jsonable_params(p) for f, p in best.items()},
+         "best_by_family": {f: jsonable_params(p) for f, p in best.items()},
          "cv": repr(CV), "n_candidates": len(table)},
         ensure_ascii=False, indent=2), encoding="utf-8")
 

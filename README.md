@@ -106,6 +106,26 @@ Hai đặc điểm phương pháp đáng chú ý:
 
 ## Chạy lại
 
+**Pipeline mô hình bằng một lệnh** (cần sẵn `data/` — xem gói nộp bài bên dưới):
+
+```bash
+pip install -r requirements.txt
+python main.py                  # ~1–2 phút: feature → chia theo năm → Pipeline(prep + model) → chấm test → outputs/
+python main.py --describe       # chỉ in mô tả pipeline: input/output, các bước, siêu tham số
+python main.py --search quick   # GridSearchCV lưới rút gọn; --search full = lưới đầy đủ 120 cấu hình (~20 phút)
+python main.py --help           # mọi tham số (chọn mô hình, ghi đè siêu tham số, năm chia test…)
+```
+
+Notebook EDA cho báo cáo: [`notebooks/EDA.ipynb`](notebooks/EDA.ipynb) — tổng quan, chất lượng dữ liệu, mất cân
+bằng lớp, feature vs nhãn, tương quan, leakage, trôi theo thời gian, luận điểm SLA, và bảng "phát hiện EDA → quyết
+định trong pipeline".
+
+**Gói nộp cho giảng viên** (code + notebook + dữ liệu rút gọn, giải nén là chạy được `python main.py`):
+`python scripts/make_submission.py` → `dist/nop_bai_SLA_tiki.zip`. Gói chứa dữ liệu cào → **chỉ nộp riêng, không
+đưa lên GitHub** (`dist/` đã gitignore).
+
+Toàn bộ quy trình từng bước:
+
 ```bash
 pip install -r requirements.txt
 
@@ -131,6 +151,8 @@ python3 -m pytest
 ## Cấu trúc
 
 ```
+main.py         pipeline mô hình chạy bằng 1 lệnh, có argparse (python main.py --help)
+notebooks/      EDA.ipynb (EDA nộp bài) · 01–04 (EDA hình, chứng minh, thang mô hình, GridSearchCV)
 src/collect/    BaseScraper (trừu tượng) → TikiListingScraper, TikiReviewScraper
 src/clean/      chuẩn hoá, gắn cờ chất lượng, tính Delivery Promise Gap
 src/validate/   data contract — 22 phép kiểm tự động, xếp theo tầng thô/sạch
@@ -157,10 +179,10 @@ cũng lấy được, nên trọng tâm của repo này là **3đ chứng minh �
 | 2 | **Data Collection** — scraper phân tầng theo sao + cache | ✅ xong | `src/collect/` · 203.510 review |
 | 3 | **Cleaning** — gắn cờ chất lượng, sửa múi giờ, data contract | ✅ xong | `src/clean/` · `src/validate/` · 22/22 kiểm |
 | 4 | **EDA — số** — thống kê có trọng số, bootstrap cụm, `n_eff` | ✅ xong | `src/evaluate/` · `FINDINGS.md` §1–§6 |
-| 5 | **EDA — hình** — biểu đồ cho báo cáo và slide | ⬜ chưa | `notebooks/` |
+| 5 | **EDA — hình** — biểu đồ cho báo cáo và slide | ✅ xong | `notebooks/EDA.ipynb` · `notebooks/01_eda.ipynb` |
 | 6 | **Độ nhạy MNAR** — chặn trên/dưới cho 90% review không nhãn | 🔶 đang dở | `src/evaluate/mnar_sensitivity.py` · kế hoạch ở `CLAUDE.md` §9.1 |
 | 7 | **Phân rã** — bẫy SLA theo ngành hàng và nhà bán | ⬜ chưa | |
-| 8 | **Modeling** — dự đoán `is_low_rating`, thang baseline, ablation | ⬜ chưa | `src/models/` |
+| 8 | **Modeling** — dự đoán `is_low_rating`, thang baseline, ablation | ✅ xong | `src/models/` · `main.py` · notebook 03, 04 |
 | 9 | **Đối chiếu Olist** — tham chiếu quốc tế, *không* phải nguồn phân tích | ⬜ chưa | |
 | 10 | **Báo cáo + slide** | ⬜ chưa | |
 

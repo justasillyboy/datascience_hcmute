@@ -19,3 +19,6 @@ CLAUDE.md
 dist/
 reports/models/*.joblib
 notebooks/_smoke_*.ipynb
+
+# Kết quả của `python main.py` (metric, dự đoán, mô hình .joblib) — sinh lại được bằng một lệnh
+outputs/
